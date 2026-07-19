@@ -36,7 +36,7 @@ async function renderEdit(videoEl, scenes, highlights, audioEvents, onProgress) 
   const totalFrames = Math.round(duration * fps);
 
   // Beat timeline
-  const beatTimes = generateBeats(duration, audioEvents, highlights);
+  const beatTimes = generateBeats(duration, audioEvents, highlights, tmpl.beatSync);
 
   // Audio setup
   let audioTracks = [];
@@ -153,37 +153,61 @@ function platformIsVertical() {
   return p === 'shorts' || p === 'reels' || p === 'tiktok';
 }
 
-// ─── Generate beat timestamps ───
-function generateBeats(duration, audioEvents, highlights) {
-  const beats = [];
-
-  if (State.music.beats.length > 0) {
-    const peakMoments = highlights.filter(h => h.intensity > 50).map(h => h.time);
-    State.music.beats.forEach(t => {
-      if (t > duration) return;
-      const barBeat = Math.round(t / (60 / State.music.bpm)) % 4;
-      const tier = barBeat === 0 ? 1 : barBeat === 2 ? 2 : 3;
-      const nearPeak = peakMoments.some(p => Math.abs(p - t) < 60 / State.music.bpm);
-      const isDrop = nearPeak && barBeat === 0;
-      const mult = nearPeak ? 1.5 : 1;
-      beats.push({ time: t, tier, isDrop, mult });
-    });
-    return beats.length ? beats : [];
-  }
-
+// ─── Generate beat-synced effect schedule ───
+function generateBeats(duration, audioEvents, highlights, beatSync) {
+  beatSync = beatSync || 'normal';
   const bpm = State.music.bpm || 120;
   const beatInterval = 60 / bpm;
-  const totalBeats = Math.ceil(duration / beatInterval);
-  const peakMoments = highlights.filter(h => h.intensity > 50).map(h => h.time);
+  const beats = [];
 
-  for (let i = 0; i < totalBeats; i++) {
-    const t = i * beatInterval;
-    const barBeat = i % 4;
-    const tier = barBeat === 0 ? 1 : barBeat === 2 ? 2 : 3;
-    const nearPeak = peakMoments.some(p => Math.abs(p - t) < beatInterval);
-    const isDrop = nearPeak && barBeat === 0;
-    const mult = nearPeak ? 1.5 : 1;
-    beats.push({ time: t, tier, isDrop, mult });
+  // Use actual beat timestamps if available from music analysis
+  const beatTimes = State.music.beats.length > 0
+    ? State.music.beats.filter(t => t <= duration)
+    : Array.from({ length: Math.ceil(duration / beatInterval) }, (_, i) => i * beatInterval);
+
+  if (!beatTimes.length) return beats;
+
+  // Filter to important highlight moments
+  const peaks = highlights.filter(h => h.intensity > 40);
+
+  // Create beat schedule: start with tier 4 (very subtle / none)
+  for (const t of beatTimes) {
+    beats.push({ time: t, tier: 4, isDrop: false, mult: 1 });
   }
+
+  if (beatSync === 'high') {
+    // High beat sync: snap each highlight to the nearest beat
+    // Effects only fire on beats near highlights; everything else stays subtle
+    for (const peak of peaks) {
+      let bestIdx = -1;
+      let bestDist = Infinity;
+      for (let i = 0; i < beats.length; i++) {
+        const dist = Math.abs(beats[i].time - peak.time);
+        if (dist < bestDist && dist < beatInterval * 3) {
+          bestDist = dist;
+          bestIdx = i;
+        }
+      }
+      if (bestIdx >= 0) {
+        const barBeat = Math.round(beats[bestIdx].time / beatInterval) % 4;
+        const intensityFactor = Math.min(1, peak.intensity / 100);
+        beats[bestIdx].tier = barBeat === 0 ? 1 : barBeat === 2 ? 2 : 3;
+        beats[bestIdx].isDrop = barBeat === 0 || barBeat === 2;
+        beats[bestIdx].mult = 1.2 + intensityFactor * 0.6;
+      }
+    }
+  } else {
+    // Normal beat sync: mark beats near highlights as stronger
+    const peakMoments = highlights.filter(h => h.intensity > 50).map(h => h.time);
+    for (let i = 0; i < beats.length; i++) {
+      const t = beats[i].time;
+      const barBeat = Math.round(t / beatInterval) % 4;
+      beats[i].tier = barBeat === 0 ? 1 : barBeat === 2 ? 2 : 3;
+      const nearPeak = peakMoments.some(p => Math.abs(p - t) < beatInterval);
+      beats[i].isDrop = nearPeak && (barBeat === 0 || barBeat === 2);
+      beats[i].mult = nearPeak ? 1.4 : 1;
+    }
+  }
+
   return beats;
 }

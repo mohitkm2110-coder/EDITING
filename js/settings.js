@@ -38,17 +38,18 @@ function getTemplate() {
   const cat = getCategory();
   const presets = {
     gaming: {
-      filter: 'contrast(1.1) saturate(1.08) brightness(0.94)',
-      shake: { max: 4, decay: 0.88, cooldown: 0.5 },
-      zoom: { max: 0.06, decay: 0.9, cooldown: 0.5 },
-      flash: { maxOpacity: 0.1, decay: 0.85 },
+      filter: 'contrast(1.12) saturate(1.1) brightness(0.93)',
+      shake: { max: 2.5, decay: 0.9, cooldown: 1.5 },
+      zoom: { max: 0.035, decay: 0.92, cooldown: 1.5 },
+      flash: { maxOpacity: 0.06, decay: 0.88 },
       vignette: false,
-      transition: { frames: 3, opacity: 0.15 },
+      transition: { frames: 2, opacity: 0.1 },
+      beatSync: 'high',
       tiers: {
-        1: { shake: 4, flash: 0.1, zoom: 0.06 },
-        2: { shake: 2, flash: 0.07, zoom: 0.03 },
-        3: { flash: 0.05, zoom: 0.015 },
-        4: { flash: 0.03 },
+        1: { shake: 2.5, flash: 0.06, zoom: 0.035 },
+        2: { shake: 1.5, flash: 0.04, zoom: 0.02 },
+        3: { flash: 0.025, zoom: 0.01 },
+        4: {},
       },
     },
     cinematic: {
@@ -58,6 +59,7 @@ function getTemplate() {
       flash: { maxOpacity: 0.07, decay: 0.88 },
       vignette: true,
       transition: { frames: 4, opacity: 0.12 },
+      beatSync: 'normal',
       tiers: {
         1: { flash: 0.06, zoom: 0.04 },
         2: { flash: 0.04, zoom: 0.02 },
@@ -72,6 +74,7 @@ function getTemplate() {
       flash: { maxOpacity: 0.15, decay: 0.8 },
       vignette: true,
       transition: { frames: 2, opacity: 0.15 },
+      beatSync: 'normal',
       tiers: {
         1: { shake: 6, flash: 0.15, zoom: 0.1 },
         2: { shake: 3.5, flash: 0.1, zoom: 0.05 },
