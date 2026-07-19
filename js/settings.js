@@ -1,15 +1,28 @@
-// ─── Initialize pill groups ───
-['videoType', 'platform', 'editingStyle', 'intensity', 'exportRes', 'exportFps', 'exportQuality', 'exportFormat'].forEach(initPills);
+// ─── Category mapping ───
+const CATEGORY_MAP = {
+  gaming: { preset: 'gaming', platform: 'youtube', videoType: 'gaming', intensity: 'medium', intMult: 1.0 },
+  cinematic: { preset: 'cinematic', platform: 'reels', videoType: 'cinematic', intensity: 'medium', intMult: 1.0 },
+  viral: { preset: 'viral', platform: 'tiktok', videoType: 'viral', intensity: 'high', intMult: 1.5 },
+};
 
-// ─── Read current settings ───
-function readSettings() {
-  return {
-    videoType: getActivePill('videoType'),
-    platform: getActivePill('platform'),
-    editingStyle: getActivePill('editingStyle'),
-    intensity: getActivePill('intensity'),
-  };
+let currentCategory = 'cinematic';
+
+function getCategory() {
+  return CATEGORY_MAP[currentCategory];
 }
+
+// ─── Category card selection ───
+$('#stepSettings').addEventListener('click', e => {
+  const card = e.target.closest('.category-card');
+  if (!card) return;
+  $$('.category-card').forEach(c => c.classList.remove('active'));
+  card.classList.add('active');
+  currentCategory = card.dataset.category;
+  State.settings.platform = CATEGORY_MAP[currentCategory].platform;
+});
+
+// ─── Export settings (pills) ───
+['exportRes', 'exportFps', 'exportQuality', 'exportFormat'].forEach(initPills);
 
 function readExport() {
   return {
@@ -20,11 +33,9 @@ function readExport() {
   };
 }
 
-// ─── Get template config from settings ───
+// ─── Get template config from category ───
 function getTemplate() {
-  const s = readSettings();
-  const intMult = { low: 0.6, medium: 1.0, high: 1.5 }[s.intensity] || 1.0;
-
+  const cat = getCategory();
   const presets = {
     gaming: {
       filter: 'contrast(1.1) saturate(1.08) brightness(0.94)',
@@ -54,20 +65,6 @@ function getTemplate() {
         4: { flash: 0.015 },
       },
     },
-    fast: {
-      filter: 'contrast(1.1) saturate(1.12) brightness(0.94)',
-      shake: { max: 5, decay: 0.85, cooldown: 0.4 },
-      zoom: { max: 0.08, decay: 0.87, cooldown: 0.4 },
-      flash: { maxOpacity: 0.12, decay: 0.82 },
-      vignette: false,
-      transition: { frames: 2, opacity: 0.12 },
-      tiers: {
-        1: { shake: 5, flash: 0.12, zoom: 0.08 },
-        2: { shake: 3, flash: 0.08, zoom: 0.04 },
-        3: { flash: 0.05, zoom: 0.02 },
-        4: { flash: 0.025 },
-      },
-    },
     viral: {
       filter: 'contrast(1.12) saturate(1.15) brightness(0.93)',
       shake: { max: 6, decay: 0.84, cooldown: 0.35 },
@@ -82,23 +79,9 @@ function getTemplate() {
         4: { flash: 0.03 },
       },
     },
-    minimal: {
-      filter: 'contrast(1.04) saturate(1.02) brightness(0.95)',
-      shake: { max: 1, decay: 0.93, cooldown: 2.5 },
-      zoom: { max: 0.015, decay: 0.94, cooldown: 2.0 },
-      flash: { maxOpacity: 0.04, decay: 0.9 },
-      vignette: true,
-      transition: { frames: 4, opacity: 0.08 },
-      tiers: {
-        1: { flash: 0.035 },
-        2: { flash: 0.02 },
-        3: {},
-        4: {},
-      },
-    },
   };
 
-  return { ...presets[s.editingStyle] || presets.cinematic, intMult };
+  return { ...presets[cat.preset], intMult: cat.intMult };
 }
 
 // ═══════════════════════════════════════════════════════════════

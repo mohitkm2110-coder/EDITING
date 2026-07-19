@@ -12,10 +12,7 @@ const State = {
   cancelling: false,
 
   settings: {
-    videoType: 'gaming',
     platform: 'reels',
-    editingStyle: 'cinematic',
-    intensity: 'medium',
   },
 
   export: {
