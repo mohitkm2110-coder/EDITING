@@ -1,5 +1,4 @@
 // ─── Render & Export Engine ───
-// Plays video through, applies effects in real-time, captures to file
 
 const canvas = document.getElementById('processor');
 const ctx = canvas.getContext('2d');
@@ -14,35 +13,30 @@ function cancelRender() {
   }
 }
 
-// ─── Main render function ───
+// ─── Main render function (rAF + frame-accurate) ───
 async function renderEdit(videoEl, scenes, highlights, audioEvents, onProgress) {
   const tmpl = getTemplate();
   const exportOpts = readExport();
 
-  // Canvas setup
-  const ar = State.settings.platform === 'shorts' || State.settings.platform === 'reels' || State.settings.platform === 'tiktok' ? 9 / 16 : 16 / 9;
-  const w = exportOpts.resolution * (ar > 1 ? ar : 1);
-  const h = exportOpts.resolution * (ar < 1 ? ar : 1);
-  const width = Math.round(ar >= 1 ? w : exportOpts.resolution * 16 / 9);
-  const height = Math.round(ar >= 1 ? exportOpts.resolution : exportOpts.resolution * 9 / 16);
-  // Simplified: use 16:9 or 9:16 based on platform
+  // Canvas size
   let canvasW, canvasH;
   if (platformIsVertical()) {
-    canvasW = exportOpts.resolution * 9 / 16;
+    canvasW = Math.round(exportOpts.resolution * 9 / 16);
     canvasH = exportOpts.resolution;
   } else {
-    canvasW = exportOpts.resolution * 16 / 9;
+    canvasW = Math.round(exportOpts.resolution * 16 / 9);
     canvasH = exportOpts.resolution;
   }
-  canvasW = Math.round(canvasW);
-  canvasH = Math.round(canvasH);
-
   const qualMap = { standard: 'low', high: 'medium', ultra: 'high' };
   setupCanvas(canvas, ctx, canvasW, canvasH, qualMap[exportOpts.quality] || 'medium');
 
   const duration = videoEl.duration;
   const fps = exportOpts.fps;
   const frameDur = 1 / fps;
+  const totalFrames = Math.round(duration * fps);
+
+  // Beat timeline
+  const beatTimes = generateBeats(duration, audioEvents, highlights);
 
   // Audio setup
   let audioTracks = [];
@@ -55,12 +49,10 @@ async function renderEdit(videoEl, scenes, highlights, audioEvents, onProgress) 
     if (procCtx.state === 'suspended') await procCtx.resume();
     audioDest = procCtx.createMediaStreamDestination();
 
-    // Video audio with volume control
     const origGain = procCtx.createGain();
     origGain.gain.value = State.music.origVolume;
     procCtx.createMediaElementSource(videoEl).connect(origGain).connect(audioDest);
 
-    // Music track with volume control
     if (State.music.buffer) {
       musicSource = procCtx.createBufferSource();
       musicSource.buffer = State.music.buffer;
@@ -74,7 +66,7 @@ async function renderEdit(videoEl, scenes, highlights, audioEvents, onProgress) 
     audioTracks = audioDest.stream.getAudioTracks();
   } catch (e) { console.warn('Audio setup:', e.message); }
 
-  // MediaRecorder setup
+  // MediaRecorder
   const cStream = canvas.captureStream(fps);
   const tracks = [...cStream.getVideoTracks(), ...audioTracks];
   let mime = '';
@@ -86,57 +78,64 @@ async function renderEdit(videoEl, scenes, highlights, audioEvents, onProgress) 
   chunks = [];
   recorder = new MediaRecorder(new MediaStream(tracks), mime ? { mimeType: mime } : {});
   recorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
-  recorder.start(1000);
-
-  // Build beat timeline (simulated from highlights/audio)
-  const beatTimes = generateBeats(duration, audioEvents, highlights);
+  recorder.start(100);
 
   // Effect state
   const efState = createEffectState();
   let beatIdx = 0;
   let prevSceneIdx = -1;
 
-  // Play through
+  // Frame-accurate render via rAF
+  let frameCount = 0;
+  videoEl.muted = true;
   videoEl.currentTime = 0;
+  await new Promise(r => { videoEl.onseeked = r; setTimeout(r, 300); });
   await videoEl.play();
-  const frameMs = 1000 / fps;
+  await delay(50);
 
-  // Main render loop
-  while (true) {
-    if (State.cancelling) { videoEl.pause(); break; }
+  await new Promise((resolve) => {
+    function renderFrame() {
+      if (State.cancelling) { videoEl.pause(); resolve(); return; }
 
-    const ct = videoEl.currentTime;
-    if (ct >= duration - 0.05) break;
+      if (videoEl.paused && frameCount < totalFrames) {
+        requestAnimationFrame(renderFrame);
+        return;
+      }
 
-    // Check for scene change
-    const sceneIdx = scenes.findIndex(s => ct >= s.start && ct < s.end);
-    const isNewScene = sceneIdx !== prevSceneIdx && prevSceneIdx >= 0;
-    prevSceneIdx = sceneIdx;
+      const videoTime = videoEl.currentTime;
 
-    // Beat-synced effects
-    while (beatIdx < beatTimes.length && beatTimes[beatIdx].time <= ct + 0.05) {
-      const b = beatTimes[beatIdx];
-      const tier = b.isDrop ? 1 : b.tier;
-      triggerBeatEffect(efState, tmpl, tier, ct, b.mult || 1);
-      beatIdx++;
+      while (frameCount < totalFrames &&
+             (frameCount === 0 || videoTime >= (frameCount + 0.5) / fps)) {
+        const ct = frameCount / fps;
+
+        const sceneIdx = scenes.findIndex(s => ct >= s.start && ct < s.end);
+        const isNewScene = sceneIdx !== prevSceneIdx && prevSceneIdx >= 0;
+        prevSceneIdx = sceneIdx;
+
+        while (beatIdx < beatTimes.length && beatTimes[beatIdx].time <= ct) {
+          const b = beatTimes[beatIdx];
+          triggerBeatEffect(efState, tmpl, b.isDrop ? 1 : b.tier, ct, b.mult || 1);
+          beatIdx++;
+        }
+
+        applyEffects(ctx, canvas, videoEl, tmpl, efState, ct, isNewScene);
+        frameCount++;
+        onProgress(frameCount / totalFrames);
+      }
+
+      if (frameCount < totalFrames) {
+        requestAnimationFrame(renderFrame);
+      } else {
+        resolve();
+      }
     }
-
-    // Draw frame
-    applyEffects(ctx, canvas, videoEl, tmpl, efState, ct, isNewScene);
-
-    // Progress
-    const pct = ct / duration;
-    onProgress(pct);
-
-    // Wait for next frame
-    const startTime = performance.now();
-    await new Promise(r => setTimeout(r, Math.max(0, frameMs - (performance.now() - startTime))));
-  }
+    requestAnimationFrame(renderFrame);
+  });
 
   // Stop recording
-  await delay(500);
+  videoEl.pause();
   if (recorder && recorder.state !== 'inactive') recorder.stop();
-  await delay(600);
+  await delay(200);
 
   // Create blob
   const ext = mime.includes('mp4') ? 'mp4' : mime.includes('quicktime') ? 'mov' : 'webm';
@@ -158,7 +157,6 @@ function platformIsVertical() {
 function generateBeats(duration, audioEvents, highlights) {
   const beats = [];
 
-  // Use actual beat timestamps from music track if available
   if (State.music.beats.length > 0) {
     const peakMoments = highlights.filter(h => h.intensity > 50).map(h => h.time);
     State.music.beats.forEach(t => {
@@ -173,7 +171,6 @@ function generateBeats(duration, audioEvents, highlights) {
     return beats.length ? beats : [];
   }
 
-  // Fallback: steady beat from configured bpm
   const bpm = State.music.bpm || 120;
   const beatInterval = 60 / bpm;
   const totalBeats = Math.ceil(duration / beatInterval);
