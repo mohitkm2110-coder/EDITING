@@ -38,17 +38,18 @@ function getTemplate() {
   const cat = getCategory();
   const presets = {
     gaming: {
-      filter: 'contrast(1.12) saturate(1.1) brightness(0.93)',
-      shake: { max: 2.5, decay: 0.9, cooldown: 1.5 },
-      zoom: { max: 0.035, decay: 0.92, cooldown: 1.5 },
-      flash: { maxOpacity: 0.06, decay: 0.88 },
-      vignette: false,
-      transition: { frames: 2, opacity: 0.1 },
+      filter: 'contrast(1.2) saturate(1.06) brightness(0.9) sepia(0.015)',
+      shake: { max: 2, decay: 0.92, cooldown: 2.0 },
+      zoom: { max: 0.025, decay: 0.93, cooldown: 2.0 },
+      flash: { maxOpacity: 0.05, decay: 0.9 },
+      vignette: true,
+      transition: { frames: 3, opacity: 0.08 },
       beatSync: 'high',
+      sparseEffects: true,
       tiers: {
-        1: { shake: 2.5, flash: 0.06, zoom: 0.035 },
-        2: { shake: 1.5, flash: 0.04, zoom: 0.02 },
-        3: { flash: 0.025, zoom: 0.01 },
+        1: { shake: 2, flash: 0.05, zoom: 0.025 },
+        2: { flash: 0.03, zoom: 0.015 },
+        3: { zoom: 0.008 },
         4: {},
       },
     },
@@ -127,6 +128,7 @@ async function analyzeMusicFile(file) {
     ctx.close();
     State.music.buffer = buffer;
     detectBeatsFromBuffer(buffer);
+    detectMusicStructure(buffer);
     showVolumeControls();
   } catch (err) {
     console.warn('Music analysis:', err.message);
@@ -168,6 +170,7 @@ function generateBuiltInTrack(id) {
     State.music.bpm = bpm;
     State.music.beats = [];
     for (let t = 0; t < dur; t += beatLen) State.music.beats.push(t);
+    detectMusicStructure(buffer);
     showVolumeControls();
     $('#bpmDisplay').textContent = bpm + ' BPM';
     $('#bpmDisplay').classList.add('show');
@@ -306,6 +309,56 @@ function detectBeatsFromBuffer(buf) {
   for (let t = 0; t < buf.duration; t += 60 / State.music.bpm) State.music.beats.push(t);
   $('#bpmDisplay').textContent = State.music.bpm + ' BPM';
   $('#bpmDisplay').classList.add('show');
+}
+
+// ─── Music structure analysis (energy levels per beat) ───
+function detectMusicStructure(buf) {
+  const bpm = State.music.bpm || 120;
+  const beatInterval = 60 / bpm;
+  const sr = buf.sampleRate;
+  const ch = buf.getChannelData(0);
+  const totalBeats = Math.min(Math.ceil(buf.duration / beatInterval), 1024);
+  const beats = [];
+
+  for (let i = 0; i < totalBeats; i++) {
+    const start = Math.floor(i * beatInterval * sr);
+    const end = Math.min(Math.floor((i + 1) * beatInterval * sr), ch.length);
+    let energy = 0, count = 0;
+    for (let j = start; j < end; j++) { energy += ch[j] * ch[j]; count++; }
+    beats.push({ time: i * beatInterval, energy: count ? Math.sqrt(energy / count) : 0 });
+  }
+
+  const maxE = Math.max(...beats.map(b => b.energy), 0.001);
+  beats.forEach(b => b.energy = b.energy / maxE);
+
+  // Smooth energy with moving average
+  const smooth = beats.map((b, i) => {
+    let s = 0, c = 0;
+    for (let j = Math.max(0, i - 2); j < Math.min(beats.length, i + 3); j++) { s += beats[j].energy; c++; }
+    return s / c;
+  });
+
+  beats.forEach((b, i) => {
+    b.smooth = smooth[i];
+    b.energyDelta = i > 0 ? smooth[i] - smooth[i - 1] : 0;
+    // Classify: energy >= 80th percentile = impact, energyDelta > 0.15 and energy > 0.5 = drop
+    b.isImpact = false;
+    b.isDrop = false;
+  });
+
+  // Mark top 12% as impact beats
+  const sorted = [...beats].sort((a, b) => b.smooth - a.smooth);
+  const impactThreshold = sorted[Math.max(2, Math.floor(sorted.length * 0.12))].smooth;
+  beats.forEach(b => { b.isImpact = b.smooth >= impactThreshold; });
+
+  // Mark drops: sudden energy jump on a medium+ energy beat
+  for (let i = 2; i < beats.length; i++) {
+    if (beats[i].energyDelta > 0.12 && beats[i].smooth > 0.4) {
+      beats[i].isDrop = true;
+    }
+  }
+
+  State.music.analysis = { beats, impactThreshold };
 }
 
 // ─── Volume controls ───

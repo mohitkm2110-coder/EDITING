@@ -60,6 +60,8 @@ async function detectHighlights(videoEl, onProgress) {
   const highlights = [];
   const step = 0.3;
   let prev = null;
+  let prevMotion = 0;
+  let motionHistory = [];
 
   for (let t = 0; t < duration; t += step) {
     if (State.cancelling) return highlights;
@@ -69,14 +71,33 @@ async function detectHighlights(videoEl, onProgress) {
     const d = actx.getImageData(0, 0, ANALYSIS_WIDTH, ANALYSIS_HEIGHT).data;
 
     if (prev) {
-      let motion = 0;
-      for (let i = 0; i < d.length; i += 8) {
-        motion += Math.abs(d[i] - prev[i]);
+      let motion = 0, detail = 0, change = 0;
+      for (let i = 0; i < d.length; i += 4) {
+        const diff = Math.abs(d[i] - prev[i]) + Math.abs(d[i+1] - prev[i+1]) + Math.abs(d[i+2] - prev[i+2]);
+        motion += diff;
+        if (diff > 40) change++;
       }
-      motion /= (ANALYSIS_WIDTH * ANALYSIS_HEIGHT / 2);
-      if (motion > 8) {
-        highlights.push({ time: t, intensity: Math.min(100, motion * 3) });
+      motion /= (ANALYSIS_WIDTH * ANALYSIS_HEIGHT * 3);
+      const changeRatio = change / (ANALYSIS_WIDTH * ANALYSIS_HEIGHT);
+
+      // Track motion changes over time for "momentum" scoring
+      motionHistory.push(motion);
+      if (motionHistory.length > 5) motionHistory.shift();
+
+      // Score: raw motion + spike bonus + momentum
+      let score = motion;
+      const spike = motion - prevMotion;
+      if (spike > 2) score += spike * 0.8;
+      if (changeRatio > 0.15) score += 0.4;
+      if (motionHistory.length >= 3) {
+        const trend = motionHistory[motionHistory.length - 1] - motionHistory[0];
+        if (trend > 0) score += trend * 0.4;
       }
+
+      if (score > 5) {
+        highlights.push({ time: t, intensity: Math.min(100, score * 15) });
+      }
+      prevMotion = motion;
     }
     prev = new Uint8Array(d);
     if (onProgress) onProgress(t / duration);

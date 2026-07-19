@@ -4,6 +4,7 @@ function createEffectState() {
     zoom: 0, flash: 0,
     transition: 0,
     lastEffectTime: -99,
+    lastTransitionTime: -99,
   };
 }
 
@@ -26,8 +27,9 @@ function applyEffects(ctx, canvas, videoEl, tmpl, state, ct, isNewScene) {
     if (state.flash < 0.005) state.flash = 0;
   }
 
-  if (isNewScene && state.transition <= 0) {
+  if (isNewScene && state.transition <= 0 && ct - state.lastTransitionTime > 1.5) {
     state.transition = tmpl.transition.frames;
+    state.lastTransitionTime = ct;
   }
 
   ctx.save();

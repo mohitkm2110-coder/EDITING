@@ -36,7 +36,7 @@ async function renderEdit(videoEl, scenes, highlights, audioEvents, onProgress) 
   const totalFrames = Math.round(duration * fps);
 
   // Beat timeline
-  const beatTimes = generateBeats(duration, audioEvents, highlights, tmpl.beatSync);
+  const beatTimes = generateBeats(duration, audioEvents, highlights, tmpl.beatSync, tmpl.sparseEffects);
 
   // Audio setup
   let audioTracks = [];
@@ -154,46 +154,110 @@ function platformIsVertical() {
 }
 
 // ─── Generate beat-synced effect schedule ───
-function generateBeats(duration, audioEvents, highlights, beatSync) {
+function generateBeats(duration, audioEvents, highlights, beatSync, sparseEffects) {
   beatSync = beatSync || 'normal';
   const bpm = State.music.bpm || 120;
   const beatInterval = 60 / bpm;
   const beats = [];
 
-  // Use actual beat timestamps if available from music analysis
   const beatTimes = State.music.beats.length > 0
     ? State.music.beats.filter(t => t <= duration)
     : Array.from({ length: Math.ceil(duration / beatInterval) }, (_, i) => i * beatInterval);
 
   if (!beatTimes.length) return beats;
 
-  // Filter to important highlight moments
-  const peaks = highlights.filter(h => h.intensity > 40);
-
-  // Create beat schedule: start with tier 4 (very subtle / none)
+  // All beats start silent (tier 4 = no effect)
   for (const t of beatTimes) {
     beats.push({ time: t, tier: 4, isDrop: false, mult: 1 });
   }
 
   if (beatSync === 'high') {
-    // High beat sync: snap each highlight to the nearest beat
-    // Effects only fire on beats near highlights; everything else stays subtle
-    for (const peak of peaks) {
-      let bestIdx = -1;
-      let bestDist = Infinity;
-      for (let i = 0; i < beats.length; i++) {
-        const dist = Math.abs(beats[i].time - peak.time);
-        if (dist < bestDist && dist < beatInterval * 3) {
-          bestDist = dist;
-          bestIdx = i;
+    // Get music structure analysis if available
+    const musicAnalysis = State.music.analysis;
+
+    // Determine which beats are "strong" (impact beats from music analysis)
+    let strongBeatIndices = new Set();
+    if (musicAnalysis && sparseEffects) {
+      // Use music energy analysis: only the top impact beats qualify
+      musicAnalysis.beats.forEach((mb, idx) => {
+        if (idx < beats.length && mb.isImpact) strongBeatIndices.add(idx);
+      });
+    }
+
+    // Filter to high-intensity highlights
+    const peaks = highlights.filter(h => h.intensity > 40);
+    // Sort by intensity descending so we prioritize the strongest moments
+    peaks.sort((a, b) => b.intensity - a.intensity);
+
+    if (sparseEffects) {
+      // === SPARSE MODE (Gaming) ===
+      // Match only the STRONGEST highlights to the STRONGEST beats
+      // Limit to ~4-6 effect moments total across the whole video
+      const maxEffects = Math.max(3, Math.min(6, Math.round(duration / 10)));
+      let scheduled = 0;
+
+      // Build list of impact beat candidates (time + index)
+      let impactCandidates = [];
+      if (strongBeatIndices.size > 0) {
+        for (const idx of strongBeatIndices) {
+          impactCandidates.push(beats[idx]);
+        }
+      } else {
+        // Fallback: use downbeats (every 4th beat) as candidates
+        for (let i = 0; i < beats.length; i += 4) {
+          impactCandidates.push(beats[i]);
         }
       }
-      if (bestIdx >= 0) {
-        const barBeat = Math.round(beats[bestIdx].time / beatInterval) % 4;
-        const intensityFactor = Math.min(1, peak.intensity / 100);
-        beats[bestIdx].tier = barBeat === 0 ? 1 : barBeat === 2 ? 2 : 3;
-        beats[bestIdx].isDrop = barBeat === 0 || barBeat === 2;
-        beats[bestIdx].mult = 1.2 + intensityFactor * 0.6;
+
+      // For each strong highlight, find the nearest impact beat
+      const usedBeats = new Set();
+      for (const peak of peaks) {
+        if (scheduled >= maxEffects) break;
+
+        let bestIdx = -1;
+        let bestDist = Infinity;
+        for (const candidate of impactCandidates) {
+          const candIdx = beats.indexOf(candidate);
+          if (usedBeats.has(candIdx)) continue;
+          const dist = Math.abs(candidate.time - peak.time);
+          // Allow wider window (up to 4 beats away) for best match
+          if (dist < bestDist && dist < beatInterval * 4) {
+            bestDist = dist;
+            bestIdx = candIdx;
+          }
+        }
+
+        if (bestIdx >= 0 && !usedBeats.has(bestIdx)) {
+          usedBeats.add(bestIdx);
+          const barBeat = Math.round(beats[bestIdx].time / beatInterval) % 4;
+          const intensityFactor = Math.min(1, peak.intensity / 100);
+          beats[bestIdx].tier = barBeat === 0 ? 1 : barBeat === 2 ? 2 : 3;
+          beats[bestIdx].isDrop = true;
+          // Scale mult by how close the highlight is to this beat (closer = stronger)
+          const timingBonus = 1.0 - (bestDist / (beatInterval * 4));
+          beats[bestIdx].mult = 1.0 + timingBonus * 0.8 + intensityFactor * 0.4;
+          scheduled++;
+        }
+      }
+    } else {
+      // === HIGH SYNC (non-sparse) ===
+      for (const peak of peaks) {
+        let bestIdx = -1;
+        let bestDist = Infinity;
+        for (let i = 0; i < beats.length; i++) {
+          const dist = Math.abs(beats[i].time - peak.time);
+          if (dist < bestDist && dist < beatInterval * 3) {
+            bestDist = dist;
+            bestIdx = i;
+          }
+        }
+        if (bestIdx >= 0) {
+          const barBeat = Math.round(beats[bestIdx].time / beatInterval) % 4;
+          const intensityFactor = Math.min(1, peak.intensity / 100);
+          beats[bestIdx].tier = barBeat === 0 ? 1 : barBeat === 2 ? 2 : 3;
+          beats[bestIdx].isDrop = barBeat === 0 || barBeat === 2;
+          beats[bestIdx].mult = 1.2 + intensityFactor * 0.6;
+        }
       }
     }
   } else {
