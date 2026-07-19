@@ -3,261 +3,250 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DEEPWAVE — AI Montage Editor</title>
-<link rel="stylesheet" href="style.css">
+<title>Deep Wave — AI Video Editor</title>
+<link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
-<header><div class="logo">DEEPWAVE</div><p>AI Montage Editor &bull; v1.0</p></header>
+<div class="app" id="app">
+  <header class="header">
+    <div class="logo">
+      <svg class="logo-wave" width="28" height="28" viewBox="0 0 28 28" fill="none">
+        <path d="M2 18c4-6 8 6 12 0s8-6 12 0" stroke="url(#wg)" stroke-width="2.5" stroke-linecap="round"/>
+        <path d="M2 22c4-4 8 4 12 0s8-4 12 0" stroke="url(#wg)" stroke-width="2" stroke-linecap="round" opacity=".5"/>
+        <defs><linearGradient id="wg" x1="2" y1="14" x2="26" y2="14"><stop stop-color="#06b6d4"/><stop offset="1" stop-color="#7c3aed"/></linearGradient></defs>
+      </svg>
+      <span class="logo-text">Deep Wave</span>
+    </div>
+    <div class="header-right">
+      <span class="badge">v2.0</span>
+      <span class="badge badge-accent">AI</span>
+    </div>
+  </header>
 
-<main>
+  <!-- Step 1: Upload -->
+  <section class="step active" id="stepUpload">
+    <div class="step-header">
+      <h2>Upload your video</h2>
+      <p>MP4 &bull; MOV &bull; AVI &bull; MKV &bull; WEBM</p>
+    </div>
+    <div class="upload-zone" id="uploadZone">
+      <div class="upload-icon">
+        <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      </div>
+      <h3>Drop your video here</h3>
+      <p>or click to browse files</p>
+      <input type="file" id="fileInput" accept="video/*,.mkv,.webm">
+    </div>
+    <div class="upload-progress" id="uploadProgress">
+      <div class="progress-track"><div class="progress-fill" id="uploadFill"></div></div>
+      <span class="progress-text" id="uploadText">0%</span>
+    </div>
+    <div class="file-info" id="fileInfo"></div>
+  </section>
 
-<!-- ══════════ HERO ══════════ -->
-<div class="hero" id="heroSection">
-<h1>Create a professional <span>AI-powered</span> montage</h1>
-<p class="hero-sub">Upload your gameplay — DEEPWAVE detects every elimination, clutch, and highlight automatically</p>
-<div class="hero-badge">&#9889; AI-POWERED &bull; BEAT-SYNCED &bull; MONTAGE EDITOR</div>
-</div>
+  <!-- Step 2: Settings -->
+  <section class="step" id="stepSettings">
+    <div class="step-header">
+      <h2>Edit Settings</h2>
+      <p>Configure your AI editing preferences</p>
+    </div>
+    <div class="settings-grid">
 
-<!-- ══════════ WORKFLOW ══════════ -->
-<div class="workflow-area" id="workflowArea" style="display:block">
+      <div class="setting-group">
+        <label>Video Type</label>
+        <div class="pill-group" id="videoType">
+          <div class="pill active" data-value="gaming">Gaming</div>
+          <div class="pill" data-value="vlog">Vlog</div>
+          <div class="pill" data-value="talking">Talking Head</div>
+          <div class="pill" data-value="podcast">Podcast</div>
+          <div class="pill" data-value="montage">Montage</div>
+          <div class="pill" data-value="shorts">Shorts / Reels</div>
+          <div class="pill" data-value="custom">Custom</div>
+        </div>
+      </div>
 
-<div class="upload-area" id="uploadArea">
-<div class="upload-zone" id="uploadZone">
-<div class="icon" id="uploadIcon">&#127909;</div>
-<h3 id="uploadTitle">Upload your gameplay</h3>
-<p id="uploadDesc">or click to browse &bull; MP4, MOV, MKV</p>
-<input type="file" id="fileInput" accept="video/*,.mkv">
-<div class="upload-progress" id="uploadProgress" style="display:none">
-<div class="upload-progress-bar"><div class="upload-progress-fill" id="uploadProgressFill"></div></div>
-<span class="upload-progress-text" id="uploadProgressText">0%</span>
-</div>
-<div class="single-info" id="singleInfo"></div>
-<div class="file-list" id="fileList"></div>
-</div>
-<div class="video-preview-box" id="videoPreviewBox">
-<video id="videoPreview" playsinline></video>
-<div class="preview-overlay"></div>
-<div class="preview-info">
-<div><div class="name" id="videoPreviewName"></div><div class="size" id="videoPreviewSize"></div></div>
-<button class="change-btn" onclick="changeVideo()">&#10005; Change</button>
-</div>
-</div>
-</div>
+      <div class="setting-group">
+        <label>Platform</label>
+        <div class="pill-group" id="platform">
+          <div class="pill" data-value="youtube">YouTube</div>
+          <div class="pill" data-value="shorts">YouTube Shorts</div>
+          <div class="pill active" data-value="reels">Instagram Reels</div>
+          <div class="pill" data-value="tiktok">TikTok</div>
+          <div class="pill" data-value="facebook">Facebook</div>
+          <div class="pill" data-value="custom">Custom</div>
+        </div>
+      </div>
 
-<!-- ══════ SETUP: TEMPLATE + MUSIC + EXPORT ══════ -->
-<div class="editor-panel" id="editorPanel">
+      <div class="setting-group">
+        <label>Editing Style</label>
+        <div class="pill-group" id="editingStyle">
+          <div class="pill" data-value="clean">Clean</div>
+          <div class="pill active" data-value="cinematic">Cinematic</div>
+          <div class="pill" data-value="fast">Fast Paced</div>
+          <div class="pill" data-value="viral">Viral</div>
+          <div class="pill" data-value="gaming">Gaming</div>
+          <div class="pill" data-value="minimal">Minimal</div>
+        </div>
+      </div>
 
-<div class="setup-header" id="setupHeader" style="margin-bottom:.6rem">
-<span class="setup-video-info" id="setupVideoInfo"></span>
-<button class="setup-change-btn" onclick="changeVideo()">&#10005; Change Video</button>
-</div>
+      <div class="setting-group">
+        <label>Intensity</label>
+        <div class="pill-group" id="intensity">
+          <div class="pill" data-value="low">Low</div>
+          <div class="pill active" data-value="medium">Medium</div>
+          <div class="pill" data-value="high">High</div>
+        </div>
+      </div>
 
-<h2>&#9889; Montage Style</h2>
-<div class="preset-grid" id="presetGrid">
-<div class="preset-card active" data-preset="gaming"><div class="emoji">&#127918;</div><div class="name">Competitive</div><div class="desc">Fast, beat-synced</div></div>
-<div class="preset-card" data-preset="cinematic"><div class="emoji">&#127916;</div><div class="name">Cinematic</div><div class="desc">Smooth &bull; dramatic</div></div>
-<div class="preset-card" data-preset="action"><div class="emoji">&#128165;</div><div class="name">Montage Pro</div><div class="desc">Heavy effects</div></div>
-<div class="preset-card" data-preset="clean"><div class="emoji">&#10024;</div><div class="name">Clean/Minimal</div><div class="desc">Subtle</div></div>
-</div>
+      <!-- ── Music ── -->
+      <div class="music-section">
+        <div class="music-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+          <h3>Music</h3>
+          <span class="music-bpm" id="bpmDisplay"></span>
+        </div>
 
-<!-- Intensity -->
-<div class="intensity-row">
-<label>&#9889; Effects Intensity:</label>
-<div class="intensity-pills">
-<div class="intensity-pill" data-intensity="light" onclick="setIntensity('light')">Light</div>
-<div class="intensity-pill active" data-intensity="balanced" onclick="setIntensity('balanced')">Balanced</div>
-<div class="intensity-pill" data-intensity="heavy" onclick="setIntensity('heavy')">Heavy</div>
-</div>
-</div>
+        <div class="music-upload" id="musicUpload">
+          <div class="music-upload-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+          </div>
+          <p>Upload your own track</p>
+          <span class="music-upload-hint">MP3, WAV, AAC, FLAC</span>
+          <input type="file" id="musicInput" accept="audio/*">
+          <div class="music-file-info" id="musicFileInfo"></div>
+        </div>
 
-<!-- Music -->
-<div class="music-section">
-<div class="music-header">
-<div class="music-header-left">
-<h2 style="margin-bottom:0;font-size:.95rem">&#127925; Music</h2>
-<label class="sync-toggle">
-<input type="checkbox" id="syncToggle">
-<span class="sync-slider"></span> Sync
-</label>
-<span class="bpm-badge" id="bpmBadge"></span>
-</div>
-</div>
-<div class="music-upload" id="musicUpload">
-<div class="icon">&#127925;</div>
-<p>Upload your own track &bull; MP3, WAV, AAC</p>
-<input type="file" id="musicInput" accept="audio/*">
-<div class="music-file-info" id="musicFileInfo"></div>
-</div>
-<div class="track-label">or choose built-in</div>
-<div class="track-grid" id="trackGrid">
-<div class="track-card" data-track="neon"><div class="emoji">&#127910;</div><div class="name">Neon Nights</div><div class="desc">128 BPM</div></div>
-<div class="track-card" data-track="epic"><div class="emoji">&#127925;</div><div class="name">Epic Rise</div><div class="desc">90 BPM</div></div>
-<div class="track-card" data-track="urban"><div class="emoji">&#9835;</div><div class="name">Urban Flow</div><div class="desc">140 BPM</div></div>
-<div class="track-card" data-track="chill"><div class="emoji">&#127911;</div><div class="name">Chill Wave</div><div class="desc">80 BPM</div></div>
-</div>
-<div class="waveform-wrap" id="waveformWrap"><div class="music-trim-waveform"><canvas id="waveform"></canvas><div class="music-trim-overlay" id="musicTrimOverlay" style="left:0%;width:100%"><div class="music-trim-handle left" id="musicTrimHandleL"></div><div class="music-trim-handle right" id="musicTrimHandleR"></div></div></div></div>
-<div class="music-trim-section" id="musicTrimSection"><div class="music-trim-header"><span>&#9986; Trim Music</span><span class="reset" onclick="resetMusicTrim()">&#8634; Reset Full Track</span></div><div class="music-trim-info"><span id="musicTrimTimes">0:00 &mdash; 0:00</span> <span id="musicTrimDur">0.0s selected</span></div><div class="music-trim-actions"><button class="btn-trim" onclick="zoomMusicTrim(0.5)">&#8722; Zoom Out</button><button class="btn-trim" onclick="zoomMusicTrim(2)">&#43; Zoom In</button><button class="btn-trim primary" onclick="previewMusicTrim()" id="btnPreviewTrim">&#9654; Preview</button><button class="btn-trim primary" onclick="confirmMusicTrim()" id="btnConfirmTrim">&#10003; Apply Trim</button></div><div class="music-audio-preview" id="musicAudioPreview">&#9654; Previewing <button onclick="stopMusicPreview()">&#9632; Stop</button></div><div class="music-trim-status" id="musicTrimStatus"></div></div>
-</div>
+        <div class="music-divider"><span>or choose built-in</span></div>
 
-<!-- Editing Options -->
-<div class="sec-card">
-<h2>&#9881; AI Editing Options</h2>
-<div class="edit-options-grid">
-<label class="edit-opt active" id="optCut"><input type="checkbox" checked onchange="setEditOption('cut',this.checked)"><span class="toggle-track"></span><span class="opt-icon">&#9986;</span><span class="opt-label">Auto Cut Boring Clips</span></label>
-<label class="edit-opt" id="optHighlights"><input type="checkbox" onchange="setEditOption('highlights',this.checked)"><span class="toggle-track"></span><span class="opt-icon">&#127775;</span><span class="opt-label">Auto Detect Highlights</span></label>
-<label class="edit-opt" id="optBeatSync"><input type="checkbox" onchange="setEditOption('beatSync',this.checked)"><span class="toggle-track"></span><span class="opt-icon">&#9835;</span><span class="opt-label">Auto Beat Sync</span></label>
-<label class="edit-opt" id="optCaptions"><input type="checkbox" onchange="setEditOption('captions',this.checked)"><span class="toggle-track"></span><span class="opt-icon">&#127759;</span><span class="opt-label">Auto Captions</span></label>
-<label class="edit-opt" id="optEffects"><input type="checkbox" onchange="setEditOption('effects',this.checked)"><span class="toggle-track"></span><span class="opt-icon">&#128165;</span><span class="opt-label">Auto Effects</span></label>
-<label class="edit-opt" id="optTransitions"><input type="checkbox" onchange="setEditOption('transitions',this.checked)"><span class="toggle-track"></span><span class="opt-icon">&#127745;</span><span class="opt-label">Auto Transitions</span></label>
-<label class="edit-opt" id="optZoom"><input type="checkbox" onchange="setEditOption('zoom',this.checked)"><span class="toggle-track"></span><span class="opt-icon">&#128269;</span><span class="opt-label">Auto Zoom</span></label>
-<label class="edit-opt" id="optColor"><input type="checkbox" onchange="setEditOption('color',this.checked)"><span class="toggle-track"></span><span class="opt-icon">&#127912;</span><span class="opt-label">Color Enhancement</span></label>
-</div>
-</div>
+        <div class="track-grid" id="trackGrid">
+          <div class="track-card" data-track="neon"><div class="track-emoji">&#127910;</div><div class="track-name">Neon Nights</div><div class="track-bpm">128 BPM</div></div>
+          <div class="track-card" data-track="epic"><div class="track-emoji">&#127925;</div><div class="track-name">Epic Rise</div><div class="track-bpm">90 BPM</div></div>
+          <div class="track-card" data-track="urban"><div class="track-emoji">&#9835;</div><div class="track-name">Urban Flow</div><div class="track-bpm">140 BPM</div></div>
+          <div class="track-card" data-track="chill"><div class="track-emoji">&#127911;</div><div class="track-name">Chill Wave</div><div class="track-bpm">80 BPM</div></div>
+        </div>
 
-<!-- Export -->
-<div class="export-section" id="exportSection">
-<h2>&#9889; Export Settings</h2>
-<div class="export-row">
-<div class="export-group">
-<label>Aspect Ratio</label>
-<div class="export-pills">
-<div class="export-pill active" data-ar="16:9" onclick="setAspectRatio('16:9')">16:9 &mdash; YouTube</div>
-<div class="export-pill" data-ar="9:16" onclick="setAspectRatio('9:16')">9:16 &mdash; TikTok / Reels / Shorts</div>
-</div>
-</div>
-<div class="export-group">
-<label>Resolution</label>
-<div class="export-pills">
-<div class="export-pill active" data-res="1080" onclick="setResolution('1080')">1080p</div>
-<div class="export-pill" data-res="720" onclick="setResolution('720')">720p</div>
-</div>
-</div>
-</div>
-</div>
+        <div class="volume-controls" id="volumeControls" style="display:none">
+          <div class="volume-row">
+            <label>Music</label>
+            <input type="range" id="musicVolume" min="0" max="100" value="70">
+            <span class="volume-val" id="musicVolumeVal">70%</span>
+          </div>
+          <div class="volume-row">
+            <label>Original Audio</label>
+            <input type="range" id="origVolume" min="0" max="100" value="50">
+            <span class="volume-val" id="origVolumeVal">50%</span>
+          </div>
+        </div>
+      </div>
 
-<!-- Generate Button -->
-<button class="btn-process" id="btnProcess">&#9889; Generate Edit</button>
-<div class="progress-wrap" id="progressWrap"><div class="progress-bar" id="progressBar"></div></div>
-<div class="status-text" id="statusText"></div>
+    </div>
 
-</div><!-- /editor-panel -->
+    <div class="settings-footer">
+      <button class="btn btn-ghost" id="btnBackUpload">&#8592; Change Video</button>
+      <button class="btn btn-primary btn-glow" id="btnGenerate">Generate Edit &#9889;</button>
+    </div>
+  </section>
 
+  <!-- Processing Overlay -->
+  <div class="overlay" id="processingOverlay">
+    <div class="overlay-card">
+      <div class="overlay-spinner"></div>
+      <h3 id="procTitle">Deep Wave is processing</h3>
+      <p class="proc-stage" id="procStage">Initializing...</p>
+      <div class="proc-steps" id="procSteps">
+        <div class="proc-step" data-step="0"><span class="dot"></span> Uploading</div>
+        <div class="proc-step" data-step="1"><span class="dot"></span> Analyzing Video</div>
+        <div class="proc-step" data-step="2"><span class="dot"></span> Detecting Scenes</div>
+        <div class="proc-step" data-step="3"><span class="dot"></span> Detecting Audio</div>
+        <div class="proc-step" data-step="4"><span class="dot"></span> Creating Timeline</div>
+        <div class="proc-step" data-step="5"><span class="dot"></span> Applying Effects</div>
+        <div class="proc-step" data-step="6"><span class="dot"></span> Rendering</div>
+        <div class="proc-step" data-step="7"><span class="dot"></span> Finalizing</div>
+      </div>
+      <div class="proc-bar"><div class="proc-bar-fill" id="procBarFill"></div></div>
+      <button class="btn btn-cancel" id="btnCancelRender">Cancel</button>
+    </div>
+  </div>
 
-<!-- ── HIGHLIGHT SECTION ── -->
-<div class="highlight-section" id="highlightSection">
-<div class="highlight-loading" id="highlightLoading">
-<div class="spinner"></div>
-<p id="hlLoadingText">Analyzing video for highlights...</p>
-<div class="step" id="hlLoadingStep">Extracting audio track</div>
-</div>
-<div id="highlightContent" style="display:none">
-<div class="highlight-summary">
-<span class="count" id="hlSummaryCount">Detected <strong>0</strong> highlights</span>
-<span class="skip-link" onclick="skipAnalysis()">&#8594; Skip &mdash; Manual Timeline Edit</span>
-</div>
-<div class="highlight-timeline-bar" id="hlTimelineBar"></div>
-<div class="highlight-list" id="highlightList"></div>
-<div class="highlight-actions">
-<button class="btn btn-secondary" onclick="showManualClipSelector()">&#43; Add Manual Clip</button>
-<button class="btn btn-primary" onclick="confirmHighlights()">&#9889; Continue to AI Edit</button>
-</div>
-</div>
-</div>
+  <!-- Step 3: Preview -->
+  <section class="step" id="stepPreview">
+    <div class="preview-header">
+      <h2>Your Edit is Ready</h2>
+      <div class="preview-actions-top">
+        <button class="btn btn-ghost" id="btnNewEdit">&#8592; New Edit</button>
+      </div>
+    </div>
 
-<!-- ── MANUAL CLIP MODAL ── -->
-<div class="modal-overlay" id="manualClipModal">
-<div class="modal-box">
-<h3>&#127916; Select Clip from Original Video</h3>
-<video id="manualClipVideo" controls playsinline></video>
-<div class="modal-clip-inputs">
-<label>Start (seconds): <input type="number" id="manualClipStart" step="0.1" min="0" value="0"></label>
-<label>End (seconds): <input type="number" id="manualClipEnd" step="0.1" min="0" value="10"></label>
-</div>
-<div class="modal-actions">
-<button class="btn btn-secondary" onclick="closeManualClipSelector()">Cancel</button>
-<button class="btn btn-primary" onclick="addManualClip()">&#43; Add to Highlights</button>
-</div>
-</div>
-</div>
+    <div class="comparison" id="comparison">
+      <div class="compare-panel">
+        <span class="compare-label">Original</span>
+        <video id="originalVideo" controls playsinline></video>
+      </div>
+      <div class="compare-panel">
+        <span class="compare-label compare-label-edited">Deep Wave Edit</span>
+        <video id="editedVideo" controls playsinline></video>
+      </div>
+    </div>
 
-<!-- ── TIMELINE SECTION ── -->
-<div class="timeline-section" id="timelineSection">
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.3rem">
-<h2>&#9981; Clip Timeline</h2>
-<span style="font-size:.75rem;color:rgba(255,255,255,.35)">&#9998; Trim, split, reorder — only your selected highlights will be edited</span>
-</div>
-<div class="timeline-bars" id="timelineBars"></div>
-<div class="timeline-summary" id="timelineSummary"></div>
-<div class="timeline-list" id="timelineList"></div>
-<div class="timeline-preview" id="timelinePreview">
-<video id="tlPreviewVideo" playsinline muted></video>
-<div class="tl-scrubber-wrap" id="tlScrubberWrap">
-<div class="tl-scrubber-track"><div class="tl-scrubber-fill" id="tlScrubberFill"></div></div>
-<div class="tl-scrubber-thumb" id="tlScrubberThumb"></div>
-<span class="tl-scrubber-time start" id="tlScrubStart">0:00</span>
-<span class="tl-scrubber-time end" id="tlScrubEnd">0:00</span>
-<span class="tl-scrubber-time current" id="tlScrubCurrent">0:00</span>
-</div>
-<div class="tl-preview-controls">
-<button class="tl-preview-btn play" id="tlBtnPlay" onclick="togglePreviewPlay()">&#9654;</button>
-<span class="tl-preview-sep"></span>
-<button class="tl-preview-btn" onclick="skipPreview(-5)" title="-5s">&#9204;</button>
-<button class="tl-preview-btn" onclick="skipPreview(5)" title="+5s">&#9205;</button>
-<span class="tl-preview-sep"></span>
-<button class="tl-preview-btn" onclick="stepPreview(-1)" title="Prev frame">&#9194;</button>
-<button class="tl-preview-btn" onclick="stepPreview(1)" title="Next frame">&#9193;</button>
-<span class="tl-preview-sep"></span>
-<button class="tl-preview-btn" id="tlBtnLoop" onclick="togglePreviewLoop()" title="Loop">&#128260;</button>
-<span class="tl-preview-time" id="tlPreviewTime">0:00.0 / 0:00.0</span>
-<span class="tl-preview-label" id="tlPreviewLabel"></span>
-</div>
-<div class="tl-preview-segment-info">
-<span id="tlPreviewSegInfo">Select a segment to preview</span>
-<span class="tl-preview-close" onclick="closeTimelinePreview()">&#10005; Close</span>
-</div>
-</div>
-<div class="timeline-footer">
-<button class="btn-back" onclick="goBackFromTimeline()">&#8592; Back to Upload</button>
-<button class="btn-continue" id="btnContinueEdit" onclick="continueToEdit()">&#9889; Continue to AI Edit</button>
-</div>
-</div>
+    <div class="export-section">
+      <div class="export-title">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <h3>Export</h3>
+      </div>
+      <div class="export-grid">
+        <div class="export-group">
+          <label>Resolution</label>
+          <div class="pill-group" id="exportRes">
+            <div class="pill" data-value="720">720p</div>
+            <div class="pill active" data-value="1080">1080p</div>
+            <div class="pill" data-value="1440">1440p</div>
+            <div class="pill" data-value="2160">4K</div>
+          </div>
+        </div>
+        <div class="export-group">
+          <label>Frame Rate</label>
+          <div class="pill-group" id="exportFps">
+            <div class="pill active" data-value="30">30 FPS</div>
+            <div class="pill" data-value="60">60 FPS</div>
+          </div>
+        </div>
+        <div class="export-group">
+          <label>Quality</label>
+          <div class="pill-group" id="exportQuality">
+            <div class="pill active" data-value="standard">Standard</div>
+            <div class="pill" data-value="high">High</div>
+            <div class="pill" data-value="ultra">Ultra</div>
+          </div>
+        </div>
+        <div class="export-group">
+          <label>Format</label>
+          <div class="pill-group" id="exportFormat">
+            <div class="pill active" data-value="mp4">MP4</div>
+            <div class="pill" data-value="mov">MOV</div>
+          </div>
+        </div>
+      </div>
+      <div class="export-bar">
+        <button class="btn btn-primary btn-glow" id="btnExport">&#11015; Export Video</button>
+      </div>
+    </div>
 
-<div class="output-section" id="outputSection">
-<video id="outputVideo" controls playsinline></video>
-<div class="output-actions">
-<button class="btn-reset" onclick="fullReset()">&#10005; Edit Another</button>
-<a class="btn-download" id="downloadLink">&#11015; Download Edit</a>
-</div>
-</div>
+    <canvas id="processor"></canvas>
+  </section>
 
-</div><!-- /workflow-area -->
-
-<!-- ── PROCESSING OVERLAY ── -->
-<div class="processing-overlay" id="processingOverlay">
-<div class="processing-card">
-<div class="processing-spinner"></div>
-<div class="processing-title" id="procTitle">Processing your video</div>
-<div class="processing-sub" id="procSub">This may take a moment</div>
-<div class="processing-steps" id="procSteps">
-<div class="processing-step" data-step="0"><span class="step-icon">&#9679;</span> Uploading video</div>
-<div class="processing-step" data-step="1"><span class="step-icon">&#9679;</span> Analyzing video</div>
-<div class="processing-step" data-step="2"><span class="step-icon">&#9679;</span> Detecting highlights</div>
-<div class="processing-step" data-step="3"><span class="step-icon">&#9679;</span> Syncing music</div>
-<div class="processing-step" data-step="4"><span class="step-icon">&#9679;</span> Applying effects</div>
-<div class="processing-step" data-step="5"><span class="step-icon">&#9679;</span> Rendering</div>
-<div class="processing-step" data-step="6"><span class="step-icon">&#9679;</span> Finalizing</div>
-</div>
-<div class="processing-bar"><div class="processing-bar-fill" id="procBarFill"></div></div>
-</div>
 </div>
 
-<canvas id="processor"></canvas>
-<canvas id="analysisCanvas" style="display:none"></canvas>
-</main>
+<footer class="footer">
+  <svg class="footer-wave" width="24" height="16" viewBox="0 0 24 16"><path d="M0 12c4-6 8 6 12 0s8-6 12 0" stroke="currentColor" stroke-width="1.5" fill="none" opacity=".3"/></svg>
+  Deep Wave &mdash; AI Video Editor
+</footer>
 
-<footer>DEEPWAVE &mdash; AI Montage Editor &bull; 2026</footer>
-
-<script src="script.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/settings.js"></script>
+<script src="js/effects.js"></script>
+<script src="js/analysis.js"></script>
+<script src="js/export.js"></script>
+<script src="js/app.js"></script>
 </body>
 </html>
