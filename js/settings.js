@@ -165,7 +165,10 @@ function setGradeIntensity(val) {
 
 // ─── Upload music file ───
 $('#musicUpload').addEventListener('click', e => {
-  if (e.target.tagName !== 'INPUT') $('#musicInput').click();
+  const inp = $('#musicInput');
+  if (e.target !== inp && !inp.contains(e.target)) {
+    inp.click();
+  }
 });
 $('#musicInput').addEventListener('change', e => {
   if (e.target.files.length) handleMusicFile(e.target.files[0]);
@@ -175,11 +178,17 @@ $('#musicUpload').addEventListener('dragleave', () => $('#musicUpload').style.bo
 $('#musicUpload').addEventListener('drop', e => {
   e.preventDefault();
   $('#musicUpload').style.borderColor = '';
-  if (e.dataTransfer.files.length && e.dataTransfer.files[0].type.startsWith('audio/')) handleMusicFile(e.dataTransfer.files[0]);
+  if (e.dataTransfer.files.length) handleMusicFile(e.dataTransfer.files[0]);
 });
 
 function handleMusicFile(file) {
-  if (!file.type.startsWith('audio/')) return;
+  const validExt = /\.(mp3|wav|aac|flac|ogg|m4a|wma)$/i;
+  const isValidMime = file.type.startsWith('audio/');
+  const isValidExt = validExt.test(file.name);
+  if (!isValidMime && !isValidExt) {
+    alert('Unsupported audio format. Use MP3, WAV, AAC, FLAC, OGG, or M4A.');
+    return;
+  }
   State.music.file = file;
   State.music.selectedTrack = null;
   $$('.track-card').forEach(x => x.classList.remove('active'));
