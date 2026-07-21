@@ -181,6 +181,10 @@ async function startEditing() {
 
     const fill = $('#procBarFill');
 
+    // Step 6: Apply effects
+    setProcStepAdv(6);
+    await delay(200);
+
     // Step 7: Render
     setProcStepAdv(7);
     const result = await renderEdit(video, scenes, highlights, audioEvents, pct => {
