@@ -2,6 +2,10 @@
 
 // ─── Step navigation ───
 function showStep(id) {
+  // Cleanup previous step
+  if ($('#stepTimeline.active') && id !== 'stepTimeline') {
+    destroyTimeline();
+  }
   $$('.step').forEach(s => s.classList.remove('active'));
   const step = $('#' + id);
   if (step) step.classList.add('active');
@@ -77,8 +81,27 @@ $('#btnBackUpload').addEventListener('click', () => {
   $('#uploadProgress').classList.remove('show');
 });
 
-// ─── Generate Edit ───
-$('#btnGenerate').addEventListener('click', startEditing);
+// ─── Generate Edit (from Settings → may go to timeline first) ───
+$('#btnGenerate').addEventListener('click', () => {
+  if (State.music.buffer || State.music.selectedTrack) {
+    showStep('stepTimeline');
+    initTimeline();
+  } else {
+    startEditing();
+  }
+});
+
+// ─── Back from Timeline to Settings ───
+$('#btnBackSettings').addEventListener('click', () => {
+  destroyTimeline();
+  showStep('stepSettings');
+});
+
+// ─── Generate from Timeline ───
+$('#btnGenerateFromTimeline').addEventListener('click', () => {
+  destroyTimeline();
+  startEditing();
+});
 
 async function startEditing() {
   if (!State.videoFile) return;
