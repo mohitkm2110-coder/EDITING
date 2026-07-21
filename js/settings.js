@@ -19,10 +19,19 @@ $('#stepSettings').addEventListener('click', e => {
   card.classList.add('active');
   currentCategory = card.dataset.category;
   State.settings.platform = CATEGORY_MAP[currentCategory].platform;
+  updateGradeLabel();
 });
+
+function updateGradeLabel() {
+  const cat = getCategory();
+  const preset = GRADE_PRESETS[cat.preset];
+  const el = $('#gradeLabel');
+  if (el && preset) el.textContent = preset.label;
+}
 
 // ─── Export settings (pills) ───
 ['exportRes', 'exportFps', 'exportQuality', 'exportFormat'].forEach(initPills);
+updateGradeLabel();
 
 function readExport() {
   return {
@@ -33,12 +42,63 @@ function readExport() {
   };
 }
 
+// ─── Color grading presets (per category, dynamic by intensity 0-1) ───
+const GRADE_PRESETS = {
+  gaming: {
+    label: 'Gaming — Clean, crisp, vibrant',
+    filter: (i) => `contrast(${1 + 0.12 * i}) saturate(${1 + 0.15 * i}) brightness(${1 - 0.01 * i})`,
+    shadows: { lift: 0, compress: 0 },
+    highlights: { rolloff: 0, boost: 0 },
+    gamma: 1,
+    warmth: 0,
+  },
+  cinematic: {
+    label: 'Cinematic — Film-like, moody, controlled',
+    filter: (i) => `contrast(${1 + 0.06 * i}) saturate(${1 - 0.14 * i}) brightness(${1 - 0.06 * i})`,
+    shadows: { lift: 14 * i, compress: 0 },
+    highlights: { rolloff: -8 * i, boost: 0 },
+    gamma: 1 - 0.02 * i,
+    warmth: 6 * i,
+  },
+  viral: {
+    label: 'Viral — Punchy, eye-catching, bold',
+    filter: (i) => `contrast(${1 + 0.2 * i}) saturate(${1 + 0.24 * i}) brightness(${1 + 0.02 * i})`,
+    shadows: { lift: -4 * i, compress: 8 * i },
+    highlights: { rolloff: 0, boost: 10 * i },
+    gamma: 1 - 0.08 * i,
+    warmth: 0,
+  },
+};
+
+function getGradeFilter(intensity) {
+  const cat = getCategory();
+  const preset = GRADE_PRESETS[cat.preset];
+  if (!preset) return { filter: 'none', pixel: null };
+  const i = Math.max(0, Math.min(1, intensity));
+  return {
+    filter: preset.filter(i),
+    pixel: {
+      shadows: { lift: preset.shadows.lift * i, compress: preset.shadows.compress * i },
+      highlights: { rolloff: preset.highlights.rolloff * i, boost: preset.highlights.boost * i },
+      gamma: 1 - (1 - preset.gamma) * i,
+      warmth: preset.warmth * i,
+    },
+  };
+}
+
 // ─── Get template config from category ───
 function getTemplate() {
   const cat = getCategory();
+  const gi = (State.settings.gradeIntensity || 70) / 100;
+  const grade = getGradeFilter(gi);
+  // Modulate intensity based on source video analysis
+  const mod = State.analysis.sourceGradeMod || 1;
+  const effectiveIntensity = Math.max(0, Math.min(1, gi * mod));
+  const appliedGrade = getGradeFilter(effectiveIntensity);
+
   const presets = {
     gaming: {
-      filter: 'contrast(1.2) saturate(1.06) brightness(0.9) sepia(0.015)',
+      filter: appliedGrade.filter,
       shake: { max: 2, decay: 0.92, cooldown: 2.0 },
       zoom: { max: 0.025, decay: 0.93, cooldown: 2.0 },
       flash: { maxOpacity: 0.05, decay: 0.9 },
@@ -46,6 +106,7 @@ function getTemplate() {
       transition: { frames: 3, opacity: 0.08 },
       beatSync: 'high',
       sparseEffects: true,
+      grade: appliedGrade.pixel,
       tiers: {
         1: { shake: 2, flash: 0.05, zoom: 0.025 },
         2: { flash: 0.03, zoom: 0.015 },
@@ -54,13 +115,14 @@ function getTemplate() {
       },
     },
     cinematic: {
-      filter: 'contrast(1.08) saturate(1.05) brightness(0.92)',
+      filter: appliedGrade.filter,
       shake: { max: 2, decay: 0.92, cooldown: 1.2 },
       zoom: { max: 0.04, decay: 0.93, cooldown: 1.0 },
       flash: { maxOpacity: 0.07, decay: 0.88 },
       vignette: true,
       transition: { frames: 4, opacity: 0.12 },
       beatSync: 'normal',
+      grade: appliedGrade.pixel,
       tiers: {
         1: { flash: 0.06, zoom: 0.04 },
         2: { flash: 0.04, zoom: 0.02 },
@@ -69,13 +131,14 @@ function getTemplate() {
       },
     },
     viral: {
-      filter: 'contrast(1.12) saturate(1.15) brightness(0.93)',
+      filter: appliedGrade.filter,
       shake: { max: 6, decay: 0.84, cooldown: 0.35 },
       zoom: { max: 0.1, decay: 0.85, cooldown: 0.35 },
       flash: { maxOpacity: 0.15, decay: 0.8 },
       vignette: true,
       transition: { frames: 2, opacity: 0.15 },
       beatSync: 'normal',
+      grade: appliedGrade.pixel,
       tiers: {
         1: { shake: 6, flash: 0.15, zoom: 0.1 },
         2: { shake: 3.5, flash: 0.1, zoom: 0.05 },
@@ -86,6 +149,14 @@ function getTemplate() {
   };
 
   return { ...presets[cat.preset], intMult: cat.intMult };
+}
+
+function getGradeIntensity() {
+  return (State.settings.gradeIntensity || 70) / 100;
+}
+
+function setGradeIntensity(val) {
+  State.settings.gradeIntensity = Math.max(0, Math.min(100, val));
 }
 
 // ═══════════════════════════════════════════════════════════════

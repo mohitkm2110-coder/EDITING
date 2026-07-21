@@ -103,6 +103,12 @@ $('#btnGenerateFromTimeline').addEventListener('click', () => {
   startEditing();
 });
 
+// ─── Color grading intensity slider ───
+$('#gradeIntensity').addEventListener('input', function() {
+  State.settings.gradeIntensity = parseInt(this.value) || 70;
+  $('#gradeIntensityVal').textContent = this.value + '%';
+});
+
 async function startEditing() {
   if (!State.videoFile) return;
   State.cancelling = false;
@@ -156,19 +162,22 @@ async function startEditing() {
     State.analysis.highlights = highlights;
     State.analysis.audioEvents = audioEvents;
 
-    // Step 5: Apply effects & render
+    // Step 5: Analyze source video characteristics for adaptive grading
     setProcStepAdv(5);
-    const fill = $('#procBarFill');
+    const sourceInfo = await analyzeSourceVideo(video, 6);
+    State.analysis.sourceGradeMod = sourceInfo.mod;
     await delay(200);
 
-    // Step 6: Render
-    setProcStepAdv(6);
+    const fill = $('#procBarFill');
+
+    // Step 7: Render
+    setProcStepAdv(7);
     const result = await renderEdit(video, scenes, highlights, audioEvents, pct => {
       fill.style.width = (60 + pct * 35) + '%';
     });
 
-    // Step 7: Finalize
-    setProcStepAdv(7);
+    // Step 8: Finalize
+    setProcStepAdv(8);
     fill.style.width = '100%';
     await delay(500);
 
@@ -213,6 +222,7 @@ function setProcStepAdv(step) {
     'Detecting scene changes...',
     'Analyzing audio track...',
     'Detecting highlights...',
+    'Analyzing source characteristics...',
     'Applying effects...',
     'Rendering video...',
     'Finalizing...',

@@ -8,6 +8,103 @@ function createEffectState() {
   };
 }
 
+// ─── Analyze source video brightness & saturation ───
+async function analyzeSourceVideo(videoEl, sampleFrames) {
+  sampleFrames = sampleFrames || 8;
+  const c = document.createElement('canvas');
+  const cx = c.getContext('2d');
+  c.width = 320;
+  c.height = 180;
+  const dur = videoEl.duration;
+  if (!dur || dur < 0.5) return { avgLuma: 0.5, avgSat: 0.4, mod: 1 };
+  let totalLuma = 0, totalSat = 0, count = 0;
+
+  for (let i = 0; i < sampleFrames; i++) {
+    const t = (i / sampleFrames) * Math.min(dur, 10);
+    videoEl.currentTime = t;
+    await new Promise(r => { videoEl.onseeked = r; setTimeout(r, 500); });
+    cx.drawImage(videoEl, 0, 0, 320, 180);
+    const d = cx.getImageData(0, 0, 320, 180).data;
+    let l = 0, s = 0, n = 0;
+    for (let j = 0; j < d.length; j += 4) {
+      const r = d[j], g = d[j + 1], b = d[j + 2];
+      const luma = 0.299 * r + 0.587 * g + 0.114 * b;
+      const mn = Math.min(r, g, b), mx = Math.max(r, g, b);
+      const sat = mx === 0 ? 0 : (mx - mn) / mx;
+      l += luma; s += sat; n++;
+    }
+    totalLuma += l / n; totalSat += s / n; count++;
+  }
+
+  const avgLuma = totalLuma / (count * 255);
+  const avgSat = totalSat / count;
+
+  // Compute modulation factor: reduce intensity when source is already extreme
+  let mod = 1;
+  if (avgLuma > 0.65) mod *= 0.8;        // bright source → less contrast/saturation
+  else if (avgLuma < 0.3) mod *= 0.9;    // dark source → gentler grading
+  if (avgSat > 0.5) mod *= 0.7;          // already colorful → less extra saturation
+  else if (avgSat < 0.15) mod *= 1.3;    // desaturated → more punch
+  mod = Math.max(0.4, Math.min(1.5, mod));
+
+  return { avgLuma, avgSat, mod };
+}
+
+// ─── Apply pixel-level color grade (shadows, highlights, gamma, warmth) ───
+function applyPixelGrade(ctx, canvas, grade) {
+  if (!grade) return;
+  const { shadows, highlights, gamma, warmth } = grade;
+  if (!shadows.lift && !shadows.compress && !highlights.rolloff && !highlights.boost &&
+      gamma >= 1 && gamma <= 1 && !warmth) return;
+
+  const w = canvas.width, h = canvas.height;
+  const d = ctx.getImageData(0, 0, w, h);
+  const pix = d.data;
+  const len = pix.length;
+
+  for (let i = 0; i < len; i += 4) {
+    let r = pix[i], g = pix[i + 1], b = pix[i + 2];
+    const luma = 0.299 * r + 0.587 * g + 0.114 * b;
+
+    // Shadows
+    if (luma < 85) {
+      const f = (85 - luma) / 85;
+      const lift = shadows.lift || 0;
+      const compress = (shadows.compress || 0) * f;
+      r += lift; g += lift; b += lift;
+      r -= compress; g -= compress; b -= compress;
+    }
+
+    // Highlights
+    if (luma > 170) {
+      const f = (luma - 170) / 85;
+      const rolloff = (highlights.rolloff || 0) * f;
+      const boost = (highlights.boost || 0) * f;
+      r -= rolloff; g -= rolloff; b -= rolloff;
+      r += boost; g += boost; b += boost;
+    }
+
+    // Midtone gamma
+    if (gamma !== 1) {
+      const normalized = luma / 255;
+      const mapped = Math.pow(normalized, gamma) * 255;
+      const scale = normalized > 0 ? mapped / normalized : 1;
+      r *= scale; g *= scale; b *= scale;
+    }
+
+    // Warmth (add red, subtract blue)
+    if (warmth) {
+      r += warmth; b -= warmth;
+    }
+
+    pix[i] = Math.max(0, Math.min(255, r));
+    pix[i + 1] = Math.max(0, Math.min(255, g));
+    pix[i + 2] = Math.max(0, Math.min(255, b));
+  }
+
+  ctx.putImageData(d, 0, 0);
+}
+
 function applyEffects(ctx, canvas, videoEl, tmpl, state, ct, isNewScene) {
   const intMult = tmpl.intMult;
 
@@ -56,6 +153,7 @@ function applyEffects(ctx, canvas, videoEl, tmpl, state, ct, isNewScene) {
       ctx.drawImage(videoEl, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
     }
     ctx.filter = 'none';
+    applyPixelGrade(ctx, canvas, tmpl.grade);
   }
 
   // Vignette

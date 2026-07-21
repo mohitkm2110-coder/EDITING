@@ -12,7 +12,8 @@ const State = {
   cancelling: false,
 
   settings: {
-    platform: 'reels',
+    platform: 'youtube',
+    gradeIntensity: 70,
   },
 
   export: {
