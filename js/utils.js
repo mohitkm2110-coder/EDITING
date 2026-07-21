@@ -36,6 +36,7 @@ const State = {
     beats: [],
     volume: 0.7,
     origVolume: 0.5,
+    offset: 0,
     analysis: null,
   },
 };

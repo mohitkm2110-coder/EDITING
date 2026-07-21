@@ -38,9 +38,9 @@ function initTimeline() {
   $('#tlOrigVolVal').textContent = Math.round(State.music.origVolume * 100) + '%';
   $('#tlMusicVol').value = Math.round(State.music.volume * 100);
   $('#tlMusicVolVal').textContent = Math.round(State.music.volume * 100) + '%';
-  $('#tlOffset').value = 0;
-  $('#tlOffsetVal').textContent = '+0.0s';
-  tl.offset = 0;
+  tl.offset = State.music.offset || 0;
+  $('#tlOffset').value = tl.offset * 10;
+  $('#tlOffsetVal').textContent = (tl.offset >= 0 ? '+' : '') + tl.offset.toFixed(1) + 's';
   tl.muted = false;
   $('#tlMuteOrig').innerHTML = '&#128264;';
 
@@ -350,12 +350,12 @@ function wireEvents() {
     document.addEventListener('touchend', () => { dragging = false; });
   }
 
-  // Offset
+  // Offset — persisted to State immediately
   $('#tlOffset').addEventListener('input', function() {
     tl.offset = this.value / 10;
+    State.music.offset = tl.offset;
     const sign = tl.offset >= 0 ? '+' : '';
     $('#tlOffsetVal').textContent = sign + tl.offset.toFixed(1) + 's';
-    // If playing, restart music at new offset
     if (tl.playing && tl.video) {
       startMusic(tl.video.currentTime);
     }

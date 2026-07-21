@@ -61,7 +61,7 @@ async function renderEdit(videoEl, scenes, highlights, audioEvents, onProgress) 
       const musicGain = procCtx.createGain();
       musicGain.gain.value = State.music.volume;
       musicSource.connect(musicGain).connect(audioDest);
-      musicSource.start();
+      musicSource.start(0, State.music.offset);
     }
 
     audioTracks = audioDest.stream.getAudioTracks();
