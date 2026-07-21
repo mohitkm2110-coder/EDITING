@@ -31,7 +31,6 @@ function updateGradeLabel() {
 
 // ─── Export settings (pills) ───
 ['exportRes', 'exportFps', 'exportQuality', 'exportFormat'].forEach(initPills);
-updateGradeLabel();
 
 function readExport() {
   return {
@@ -69,6 +68,8 @@ const GRADE_PRESETS = {
     warmth: 0,
   },
 };
+
+updateGradeLabel();
 
 function getGradeFilter(intensity) {
   const cat = getCategory();
