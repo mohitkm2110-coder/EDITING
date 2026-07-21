@@ -52,75 +52,76 @@
       <p>Drag the music track to sync it with your video</p>
     </div>
 
-    <div class="timeline-container">
-      <!-- Preview bar -->
-      <div class="tl-preview-bar">
-        <button class="btn btn-preview" id="btnPreviewPlay">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
-          <span>Preview</span>
+    <div class="tl-container">
+      <!-- VIDEO PREVIEW (top) -->
+      <div class="tl-video-wrap">
+        <video id="tlVideo" playsinline></video>
+        <div class="tl-video-overlay" id="tlVideoOverlay">
+          <span id="tlTimeDisplay">0:00 / 0:00</span>
+        </div>
+      </div>
+
+      <!-- Controls row -->
+      <div class="tl-controls-row">
+        <button class="tl-play-btn" id="btnPlay">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" id="playIcon"><polygon points="5,3 19,12 5,21"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" id="pauseIcon" style="display:none"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
         </button>
-        <span class="tl-time" id="tlTime">0:00 / 0:00</span>
+        <div class="tl-scrub-bar" id="tlScrubBar">
+          <div class="tl-scrub-track">
+            <div class="tl-scrub-fill" id="tlScrubFill"></div>
+            <div class="tl-scrub-thumb" id="tlScrubThumb"></div>
+          </div>
+        </div>
+        <span class="tl-time-label" id="tlTimeLabel">0:00</span>
       </div>
 
-      <!-- Waveform + Ruler -->
-      <div class="tl-track" id="tlTrack">
-        <div class="tl-ruler" id="tlRuler"></div>
-        <div class="tl-waveform-wrap">
-          <canvas id="tlWaveform"></canvas>
-          <div class="tl-playhead" id="tlPlayhead">
-            <div class="tl-playhead-handle"></div>
-          </div>
-          <div class="tl-region" id="tlRegion">
+      <!-- MUSIC WAVEFORM / TIMELINE -->
+      <div class="tl-wave-section">
+        <div class="tl-track" id="tlTrack">
+          <div class="tl-ruler" id="tlRuler"></div>
+          <div class="tl-waveform-wrap" id="tlWaveformWrap">
+            <canvas id="tlWaveform"></canvas>
+            <div class="tl-beats-overlay" id="tlBeatsOverlay"></div>
             <div class="tl-region-left" id="tlRegionLeft"></div>
-            <div class="tl-region-body" id="tlRegionBody"></div>
             <div class="tl-region-right" id="tlRegionRight"></div>
+            <div class="tl-playhead-bar" id="tlPlayheadBar"></div>
           </div>
         </div>
-        <div class="tl-beats" id="tlBeats"></div>
       </div>
 
-      <!-- Offset slider -->
-      <div class="tl-offset-row">
-        <label>Music Start</label>
-        <div class="tl-offset-slider">
+      <!-- Controls -->
+      <div class="tl-controls">
+        <div class="tl-offset-row">
+          <label>Track Offset</label>
           <input type="range" id="tlOffset" min="-50" max="50" value="0" step="0.5">
-          <div class="tl-offset-labels">
-            <span>Earlier</span>
-            <span id="tlOffsetDisplay">+0.0s</span>
-            <span>Later</span>
-          </div>
+          <span id="tlOffsetVal">+0.0s</span>
+        </div>
+        <div class="tl-beat-row">
+          <label class="tl-toggle">
+            <input type="checkbox" id="tlBeatSync" checked>
+            <span class="tl-toggle-track"></span>
+            Beat Sync
+          </label>
+          <span id="tlBpmDisplay"></span>
         </div>
       </div>
 
-      <!-- Beat sync toggle -->
-      <div class="tl-beat-toggle">
-        <label class="tl-toggle">
-          <input type="checkbox" id="tlBeatSync" checked>
-          <span class="tl-toggle-track"></span>
-          Beat Sync
-        </label>
-        <span class="tl-beat-info" id="tlBeatInfo"></span>
-      </div>
-
-      <!-- Volume controls -->
-      <div class="tl-volume-section">
+      <!-- Volume -->
+      <div class="tl-volume-box">
         <div class="tl-vol-row">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
-          <span>Original</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+          <span>Video Audio</span>
           <input type="range" id="tlOrigVol" min="0" max="100" value="50">
           <span class="tl-vol-val" id="tlOrigVolVal">50%</span>
           <button class="tl-mute-btn" id="tlMuteOrig">&#128264;</button>
         </div>
         <div class="tl-vol-row">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-          <span>Music</span>
+          <span>Background Music</span>
           <input type="range" id="tlMusicVol" min="0" max="100" value="70">
           <span class="tl-vol-val" id="tlMusicVolVal">70%</span>
         </div>
-      </div>
-
-      <div class="tl-preview-video" id="tlPreviewVideo">
-        <video id="tlVideo" playsinline></video>
       </div>
     </div>
 
