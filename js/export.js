@@ -28,7 +28,8 @@ async function renderEdit(videoEl, scenes, highlights, audioEvents, onProgress) 
     canvasH = exportOpts.resolution;
   }
   const qualMap = { standard: 'low', high: 'medium', ultra: 'high' };
-  setupCanvas(canvas, ctx, canvasW, canvasH, qualMap[exportOpts.quality] || 'medium');
+  const smoothingQuality = qualMap[exportOpts.quality] || 'medium';
+  setupCanvas(canvas, ctx, canvasW, canvasH, smoothingQuality);
 
   const duration = videoEl.duration;
   const fps = exportOpts.fps;
@@ -76,7 +77,17 @@ async function renderEdit(videoEl, scenes, highlights, audioEvents, onProgress) 
   codecs.forEach(t => { if (MediaRecorder.isTypeSupported(t)) mime = t; });
 
   chunks = [];
-  recorder = new MediaRecorder(new MediaStream(tracks), mime ? { mimeType: mime } : {});
+  // Calculate bitrate based on resolution and quality
+  const pixelCount = canvasW * canvasH;
+  const qualityBits = { standard: 0.08, high: 0.13, ultra: 0.2 };
+  const bitsPerPixel = qualityBits[exportOpts.quality] || 0.08;
+  const videoBitrate = Math.round(pixelCount * fps * bitsPerPixel);
+  const recorderOpts = mime ? {
+    mimeType: mime,
+    videoBitsPerSecond: videoBitrate,
+  } : { videoBitsPerSecond: videoBitrate };
+
+  recorder = new MediaRecorder(new MediaStream(tracks), recorderOpts);
   recorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
   recorder.start(100);
 

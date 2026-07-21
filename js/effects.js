@@ -116,5 +116,5 @@ function setupCanvas(canvas, ctx, width, height, quality) {
   canvas.width = width;
   canvas.height = height;
   ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = quality === 'ultra' || quality === 'high' ? 'high' : 'low';
+  ctx.imageSmoothingQuality = quality === 'high' ? 'medium' : quality === 'ultra' ? 'high' : 'low';
 }
