@@ -45,11 +45,66 @@
     <div class="file-info" id="fileInfo"></div>
   </section>
 
-  <!-- Step 2.5: Audio Timeline -->
+  <!-- Step 2: Music Selection -->
+  <section class="step" id="stepMusic">
+    <div class="step-header">
+      <h2>Choose Your Music</h2>
+      <p>Upload a track or pick a built-in beat</p>
+    </div>
+    <div class="settings-grid">
+
+      <div class="music-section">
+        <div class="music-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+          <h3>Music</h3>
+          <span class="music-bpm" id="bpmDisplay"></span>
+        </div>
+
+        <div class="music-upload" id="musicUpload">
+          <div class="music-upload-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+          </div>
+          <p>Upload your own track</p>
+          <span class="music-upload-hint">MP3, WAV, AAC, FLAC</span>
+          <input type="file" id="musicInput" accept="audio/*">
+          <div class="music-file-info" id="musicFileInfo"></div>
+        </div>
+
+        <div class="music-divider"><span>or choose built-in</span></div>
+
+        <div class="track-grid" id="trackGrid">
+          <div class="track-card" data-track="neon"><div class="track-emoji">&#127910;</div><div class="track-name">Neon Nights</div><div class="track-bpm">128 BPM</div></div>
+          <div class="track-card" data-track="epic"><div class="track-emoji">&#127925;</div><div class="track-name">Epic Rise</div><div class="track-bpm">90 BPM</div></div>
+          <div class="track-card" data-track="urban"><div class="track-emoji">&#9835;</div><div class="track-name">Urban Flow</div><div class="track-bpm">140 BPM</div></div>
+          <div class="track-card" data-track="chill"><div class="track-emoji">&#127911;</div><div class="track-name">Chill Wave</div><div class="track-bpm">80 BPM</div></div>
+        </div>
+
+        <div class="volume-controls" id="volumeControls" style="display:none">
+          <div class="volume-row">
+            <label>Music</label>
+            <input type="range" id="musicVolume" min="0" max="100" value="70">
+            <span class="volume-val" id="musicVolumeVal">70%</span>
+          </div>
+          <div class="volume-row">
+            <label>Original Audio</label>
+            <input type="range" id="origVolume" min="0" max="100" value="50">
+            <span class="volume-val" id="origVolumeVal">50%</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+    <div class="settings-footer">
+      <button class="btn btn-ghost" id="btnMusicBack">&#8592; Change Video</button>
+      <button class="btn btn-primary btn-glow" id="btnMusicNext">Next &#8594;</button>
+    </div>
+  </section>
+
+  <!-- Step 3: Audio Adjustment -->
   <section class="step" id="stepTimeline">
     <div class="step-header">
-      <h2>Audio Sync</h2>
-      <p>Drag the music track to sync it with your video</p>
+      <h2>Audio Adjustment</h2>
+      <p>Fine-tune music position, volume, and sync with your video</p>
     </div>
 
     <div class="tl-container">
@@ -126,16 +181,16 @@
     </div>
 
     <div class="settings-footer">
-      <button class="btn btn-ghost" id="btnBackSettings">&#8592; Back</button>
-      <button class="btn btn-primary btn-glow" id="btnGenerateFromTimeline">Generate Edit &#9889;</button>
+      <button class="btn btn-ghost" id="btnTimelineBack">&#8592; Back to Music</button>
+      <button class="btn btn-primary btn-glow" id="btnTimelineNext">Next &#8594;</button>
     </div>
   </section>
 
-  <!-- Step 2: Settings -->
+  <!-- Step 4: Editing Options -->
   <section class="step" id="stepSettings">
     <div class="step-header">
-      <h2>Edit Settings</h2>
-      <p>Configure your AI editing preferences</p>
+      <h2>Editing Options</h2>
+      <p>Configure style, grading, and export settings</p>
     </div>
     <div class="settings-grid">
 
@@ -172,51 +227,10 @@
         </div>
       </div>
 
-      <!-- ── Music ── -->
-      <div class="music-section">
-        <div class="music-title">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-          <h3>Music</h3>
-          <span class="music-bpm" id="bpmDisplay"></span>
-        </div>
-
-        <div class="music-upload" id="musicUpload">
-          <div class="music-upload-icon">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-          </div>
-          <p>Upload your own track</p>
-          <span class="music-upload-hint">MP3, WAV, AAC, FLAC</span>
-          <input type="file" id="musicInput" accept="audio/*">
-          <div class="music-file-info" id="musicFileInfo"></div>
-        </div>
-
-        <div class="music-divider"><span>or choose built-in</span></div>
-
-        <div class="track-grid" id="trackGrid">
-          <div class="track-card" data-track="neon"><div class="track-emoji">&#127910;</div><div class="track-name">Neon Nights</div><div class="track-bpm">128 BPM</div></div>
-          <div class="track-card" data-track="epic"><div class="track-emoji">&#127925;</div><div class="track-name">Epic Rise</div><div class="track-bpm">90 BPM</div></div>
-          <div class="track-card" data-track="urban"><div class="track-emoji">&#9835;</div><div class="track-name">Urban Flow</div><div class="track-bpm">140 BPM</div></div>
-          <div class="track-card" data-track="chill"><div class="track-emoji">&#127911;</div><div class="track-name">Chill Wave</div><div class="track-bpm">80 BPM</div></div>
-        </div>
-
-        <div class="volume-controls" id="volumeControls" style="display:none">
-          <div class="volume-row">
-            <label>Music</label>
-            <input type="range" id="musicVolume" min="0" max="100" value="70">
-            <span class="volume-val" id="musicVolumeVal">70%</span>
-          </div>
-          <div class="volume-row">
-            <label>Original Audio</label>
-            <input type="range" id="origVolume" min="0" max="100" value="50">
-            <span class="volume-val" id="origVolumeVal">50%</span>
-          </div>
-        </div>
-      </div>
-
     </div>
 
     <div class="settings-footer">
-      <button class="btn btn-ghost" id="btnBackUpload">&#8592; Change Video</button>
+      <button class="btn btn-ghost" id="btnSettingsBack">&#8592; Back to Preview</button>
       <button class="btn btn-primary btn-glow" id="btnGenerate">Generate Edit &#9889;</button>
     </div>
   </section>

@@ -2,7 +2,7 @@
 
 // ─── Step navigation ───
 function showStep(id) {
-  // Cleanup previous step
+  // Cleanup timeline when leaving audio adjustment step
   if ($('#stepTimeline.active') && id !== 'stepTimeline') {
     destroyTimeline();
   }
@@ -66,40 +66,51 @@ async function handleFile(file) {
   info.textContent = file.name + ' \u2022 ' + fmtSize(file.size) + ' \u2022 ' + fmtTime(v.duration);
   info.classList.add('show');
 
-  // Move to settings
+  // Move to music selection
   await delay(400);
   prog.classList.remove('show');
-  showStep('stepSettings');
+  showStep('stepMusic');
 }
 
-// ─── Back to upload ───
-$('#btnBackUpload').addEventListener('click', () => {
+// ─── Music step navigation ───
+$('#btnMusicBack').addEventListener('click', () => {
   showStep('stepUpload');
   if (State.videoUrl) { URL.revokeObjectURL(State.videoUrl); State.videoUrl = null; }
   State.videoFile = null;
   $('#fileInfo').classList.remove('show');
   $('#uploadProgress').classList.remove('show');
+  State.music.file = null;
+  State.music.buffer = null;
+  State.music.selectedTrack = null;
 });
 
-// ─── Generate Edit (from Settings → may go to timeline first) ───
-$('#btnGenerate').addEventListener('click', () => {
-  if (State.music.buffer || State.music.selectedTrack) {
-    showStep('stepTimeline');
-    initTimeline();
-  } else {
-    startEditing();
+$('#btnMusicNext').addEventListener('click', () => {
+  if (!State.music.buffer && !State.music.selectedTrack) {
+    alert('Please select or upload a music track first.');
+    return;
   }
+  showStep('stepTimeline');
+  initTimeline();
 });
 
-// ─── Back from Timeline to Settings ───
-$('#btnBackSettings').addEventListener('click', () => {
+// ─── Timeline (Audio Adjustment) navigation ───
+$('#btnTimelineBack').addEventListener('click', () => {
+  destroyTimeline();
+  showStep('stepMusic');
+});
+
+$('#btnTimelineNext').addEventListener('click', () => {
   destroyTimeline();
   showStep('stepSettings');
 });
 
-// ─── Generate from Timeline ───
-$('#btnGenerateFromTimeline').addEventListener('click', () => {
-  destroyTimeline();
+// ─── Settings (Editing Options) navigation ───
+$('#btnSettingsBack').addEventListener('click', () => {
+  showStep('stepTimeline');
+  initTimeline();
+});
+
+$('#btnGenerate').addEventListener('click', () => {
   startEditing();
 });
 
