@@ -39,6 +39,7 @@ const State = {
     origVolume: 0.5,
     offset: 0,
     analysis: null,
+    analyzing: false,
   },
 };
 

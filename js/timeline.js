@@ -54,8 +54,7 @@ function initTimeline() {
   // Draw timeline
   drawTimeline();
 
-  // Events
-  wireEvents();
+  // Events wired once at page load — see wireEvents() below
 }
 
 // ─── Audio: music only, video plays natively ───
@@ -414,6 +413,9 @@ function destroyTimeline() {
   }
   // Keep audioCtx alive for future use, close on page unload
 }
+
+// ─── Wire all timeline events once at page load ───
+wireEvents();
 
 // ─── Expose ───
 window.initTimeline = initTimeline;

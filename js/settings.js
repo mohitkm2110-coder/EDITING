@@ -191,9 +191,11 @@ function handleMusicFile(file) {
   }
   State.music.file = file;
   State.music.selectedTrack = null;
+  State.music.analyzing = true;
+  disableBtnNext(true);
   $$('.track-card').forEach(x => x.classList.remove('active'));
   const info = $('#musicFileInfo');
-  info.textContent = '\u{1F3B5} ' + file.name + ' (' + fmtSize(file.size) + ')';
+  info.textContent = '\u{1F3B5} Analyzing ' + file.name + '...';
   info.classList.add('show');
   analyzeMusicFile(file);
 }
@@ -207,10 +209,15 @@ async function analyzeMusicFile(file) {
     const buffer = await ctx.decodeAudioData(reader.result);
     ctx.close();
     State.music.buffer = buffer;
+    State.music.analyzing = false;
+    $('#musicFileInfo').textContent = '\u{1F3B5} ' + file.name + ' (' + fmtSize(file.size) + ')';
     detectBeatsFromBuffer(buffer);
     detectMusicStructure(buffer);
     showVolumeControls();
+    enableNextBtn();
   } catch (err) {
+    State.music.analyzing = false;
+    $('#musicFileInfo').textContent = '\u26A0\uFE0F Analysis failed: ' + (err.message || 'unknown error');
     console.warn('Music analysis:', err.message);
   }
 }
@@ -228,10 +235,22 @@ function selectTrack(id) {
   State.music.selectedTrack = id;
   State.music.file = null;
   State.music.buffer = null;
+  State.music.analyzing = true;
+  disableNextBtn();
   $('#musicFileInfo').classList.remove('show');
   $('#musicInput').value = '';
   $$('.track-card').forEach(x => x.classList.toggle('active', x.dataset.track === id));
   generateBuiltInTrack(id);
+}
+
+function disableNextBtn() {
+  const btn = $('#btnMusicNext');
+  if (btn) { btn.disabled = true; btn.textContent = 'Loading...'; }
+}
+
+function enableNextBtn() {
+  const btn = $('#btnMusicNext');
+  if (btn) { btn.disabled = false; btn.innerHTML = 'Next &#8594;'; }
 }
 
 function generateBuiltInTrack(id) {
@@ -248,13 +267,19 @@ function generateBuiltInTrack(id) {
   ctx.startRendering().then(buffer => {
     State.music.buffer = buffer;
     State.music.bpm = bpm;
+    State.music.analyzing = false;
     State.music.beats = [];
     for (let t = 0; t < dur; t += beatLen) State.music.beats.push(t);
     detectMusicStructure(buffer);
     showVolumeControls();
     $('#bpmDisplay').textContent = bpm + ' BPM';
     $('#bpmDisplay').classList.add('show');
-  }).catch(console.error);
+    enableNextBtn();
+  }).catch(e => {
+    State.music.analyzing = false;
+    enableNextBtn();
+    console.error(e);
+  });
 }
 
 function renderTrack(ctx, id, bpm, dur, tb) {
