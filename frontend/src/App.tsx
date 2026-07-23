@@ -40,7 +40,7 @@ export default function App() {
     setProcProgress(0.05);
 
     try {
-      const musicFn = music?.filename.split('/').pop() || null;
+      const musicFn = music?.filename || selectedTrack;
       const resp = await generateEdit(video.filename, musicFn, style, 0, origVol / 100, musicVol / 100);
       setProcStage('Processing video...');
       setProcProgress(0.15);
@@ -87,7 +87,7 @@ export default function App() {
 
       {error && <div className="error-banner">{error}</div>}
 
-      {step === 'upload' && <StepUpload onVideoUploaded={(fn, url, dur) => { setVideo({ filename: fn, url, duration: dur }); setStep('music'); }} />}
+      {step === 'upload' && <StepUpload onVideoUploaded={(fn, _serverUrl, localUrl, dur) => { setVideo({ filename: fn, url: localUrl, duration: dur }); setStep('music'); }} />}
 
       {step === 'music' && (
         <StepMusic

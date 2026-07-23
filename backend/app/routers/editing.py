@@ -6,6 +6,7 @@ from ..services.music_analyzer import analyze_music
 from ..services.ai_planner import generate_edit_plan
 from ..services.video_processor import get_video_info, process_video
 from ..services.job_manager import create_job, get_job, run_in_background
+from ..services.track_generator import ensure_builtin_tracks, generate_track, BUILTIN_TRACKS
 
 router = APIRouter(prefix="/api", tags=["editing"])
 
@@ -25,7 +26,12 @@ async def generate_edit(req: GenerateRequest):
     if req.music_filename:
         music_path = os.path.join(UPLOAD_DIR, req.music_filename)
         if not os.path.exists(music_path):
-            raise HTTPException(404, "Music file not found.")
+            if req.music_filename.startswith("builtin_"):
+                track_id = req.music_filename.replace("builtin_", "").replace(".wav", "")
+                if track_id in BUILTIN_TRACKS:
+                    ensure_builtin_tracks(UPLOAD_DIR)
+            if not os.path.exists(music_path):
+                raise HTTPException(404, "Music file not found.")
         music_analysis = analyze_music(music_path)
 
     video_info = get_video_info(video_path)

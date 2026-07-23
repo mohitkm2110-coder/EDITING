@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { uploadMusic } from '../api';
 
 const TRACKS = [
   { id: 'neon', label: 'Neon Nights', bpm: 128 },
@@ -39,7 +40,12 @@ export default function StepMusic({
       setError('Unsupported audio format. Use MP3, WAV, AAC, FLAC, OGG, or M4A.');
       return;
     }
-    onMusicSelected({ filename: file.name, url: URL.createObjectURL(file), duration: 0 });
+    try {
+      const resp = await uploadMusic(file);
+      onMusicSelected({ filename: resp.filename, url: resp.url, duration: resp.duration });
+    } catch (e: any) {
+      setError(e.message || 'Upload failed');
+    }
   };
 
   const hasMusic = music || selectedTrack;
@@ -62,7 +68,7 @@ export default function StepMusic({
       <div className="section-title">Built-in tracks</div>
       <div className="track-grid">
         {TRACKS.map(t => (
-          <div key={t.id} className={`track-card ${selectedTrack === t.id ? 'active' : ''}`} onClick={() => onTrackSelected(t.id)}>
+          <div key={t.id} className={`track-card ${selectedTrack === `builtin_${t.id}.wav` ? 'active' : ''}`} onClick={() => onTrackSelected(`builtin_${t.id}.wav`)}>
             <div className="track-name">{t.label}</div>
             <div className="track-bpm">{t.bpm} BPM</div>
           </div>

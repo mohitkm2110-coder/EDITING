@@ -27,6 +27,12 @@ from .routers import upload, editing
 app.include_router(upload.router)
 app.include_router(editing.router)
 
+from .services.track_generator import ensure_builtin_tracks
+
+@app.on_event("startup")
+async def startup():
+    ensure_builtin_tracks(UPLOAD_DIR)
+
 
 @app.get("/api/media/{filename}")
 async def serve_media(filename: str):

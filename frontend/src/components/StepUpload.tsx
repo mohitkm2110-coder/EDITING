@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react';
+import { uploadVideo } from '../api';
 
 interface Props {
-  onVideoUploaded: (filename: string, url: string, duration: number) => void;
+  onVideoUploaded: (filename: string, serverUrl: string, localUrl: string, duration: number) => void;
 }
 
 export default function StepUpload({ onVideoUploaded }: Props) {
@@ -19,18 +20,29 @@ export default function StepUpload({ onVideoUploaded }: Props) {
       return;
     }
     setUploading(true);
-    for (let p = 0; p <= 100; p += 5) {
-      setProgress(p);
-      await new Promise(r => setTimeout(r, 30));
+    setProgress(0);
+
+    try {
+      // Upload to backend
+      const resp = await uploadVideo(file);
+      setProgress(50);
+
+      // Create local preview URL
+      const localUrl = URL.createObjectURL(file);
+      const v = document.createElement('video');
+      v.preload = 'metadata';
+      v.src = localUrl;
+      await new Promise<void>(r => { v.onloadedmetadata = () => r(); setTimeout(r, 8000); });
+      const duration = v.duration;
+      v.remove();
+
+      setProgress(100);
+      onVideoUploaded(resp.filename, resp.url, localUrl, duration);
+    } catch (e: any) {
+      setError(e.message || 'Upload failed');
+    } finally {
+      setUploading(false);
     }
-    const url = URL.createObjectURL(file);
-    const v = document.createElement('video');
-    v.preload = 'metadata';
-    v.src = url;
-    await new Promise<void>(r => { v.onloadedmetadata = () => r(); setTimeout(r, 8000); });
-    const duration = v.duration;
-    v.remove();
-    onVideoUploaded(file.name, url, duration);
   };
 
   return (
