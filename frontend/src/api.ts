@@ -1,6 +1,6 @@
 import type { UploadResponse, GenerateResponse, JobStatus } from './types';
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API = import.meta.env.VITE_API_URL || '';
 
 export async function uploadVideo(file: File): Promise<UploadResponse> {
   const form = new FormData();
