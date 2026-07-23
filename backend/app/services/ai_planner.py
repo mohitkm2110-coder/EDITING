@@ -2,81 +2,97 @@ import json
 import logging
 import os
 from typing import Optional
-from ..models.schemas import EditingOptions, EditPlan
 
 logger = logging.getLogger(__name__)
 
-QWEN_API_KEY = os.getenv("QWEN_API_KEY", "")
-QWEN_API_URL = os.getenv("QWEN_API_URL", "https://api.qwen.ai/v1/chat/completions")
+STYLE_PRESETS = {
+    "gaming": {
+        "label": "Gaming",
+        "color_grade": {"contrast": 1.12, "saturation": 1.1, "brightness": 0.0},
+        "effects": {"shake": "subtle", "flash": "minimal", "zoom": "clean"},
+        "transition_speed": "fast",
+        "beat_sync_intensity": 0.7,
+        "highlight_threshold": 0.6,
+    },
+    "viral": {
+        "label": "Viral",
+        "color_grade": {"contrast": 1.2, "saturation": 1.25, "brightness": 0.02},
+        "effects": {"shake": "moderate", "flash": "moderate", "zoom": "dynamic"},
+        "transition_speed": "fast",
+        "beat_sync_intensity": 0.9,
+        "highlight_threshold": 0.4,
+    },
+    "cinematic": {
+        "label": "Cinematic",
+        "color_grade": {"contrast": 1.08, "saturation": 0.88, "brightness": -0.04},
+        "effects": {"shake": "minimal", "flash": "minimal", "zoom": "slow"},
+        "transition_speed": "slow",
+        "beat_sync_intensity": 0.5,
+        "highlight_threshold": 0.7,
+    },
+}
 
-SYSTEM_PROMPT = """You are Qwen 3, the AI editing brain for Deep Wave video editor.
-Generate a structured JSON editing plan based on video analysis and user options.
-Never modify footage unless explicitly enabled. Return ONLY valid JSON."""
+
+def get_style_config(style: str) -> dict:
+    return STYLE_PRESETS.get(style, STYLE_PRESETS["gaming"])
+
 
 async def generate_edit_plan(
     video_info: dict,
     music_analysis: Optional[dict],
-    options: EditingOptions,
-    grade_preset: str = "natural",
-    grade_intensity: float = 0.5,
-) -> EditPlan:
-    prompt = {
-        "video": video_info,
-        "music": music_analysis,
-        "options": options.model_dump(),
-        "grade": {"preset": grade_preset, "intensity": grade_intensity},
+    style: str,
+) -> dict:
+    style_cfg = get_style_config(style)
+    beats = music_analysis.get("beats", []) if music_analysis else []
+    strong_beats = music_analysis.get("strong_beats", []) if music_analysis else []
+    tempo = music_analysis.get("tempo", 120) if music_analysis else 120
+
+    plan = {
+        "original_duration": video_info.get("duration", 0),
+        "music_duration": music_analysis.get("duration") if music_analysis else None,
+        "style": style,
+        "style_config": style_cfg,
+        "tempo": tempo,
+        "total_beats": len(beats),
+        "beats": [{"time": b, "strong": b in strong_beats} for b in beats[:64]],
+        "moments": video_info.get("moments", []),
+        "expected_final_duration": video_info.get("duration", 0),
+        "audio": {
+            "mix": "balanced",
+            "original_volume": 0.7,
+            "music_volume": 0.5,
+        },
     }
 
-    if QWEN_API_KEY:
+    # If Qwen API key is set, try to use the LLM for enhanced planning
+    qwen_key = os.getenv("QWEN_API_KEY")
+    if qwen_key:
         try:
             import httpx
+            prompt = json.dumps({
+                "task": "Generate a video editing plan",
+                "video": video_info,
+                "music": music_analysis,
+                "style": style,
+                "style_config": style_cfg,
+            })
             async with httpx.AsyncClient(timeout=60) as client:
                 resp = await client.post(
-                    QWEN_API_URL,
-                    headers={"Authorization": f"Bearer {QWEN_API_KEY}", "Content-Type": "application/json"},
+                    os.getenv("QWEN_API_URL", "https://api.qwen.ai/v1/chat/completions"),
+                    headers={"Authorization": f"Bearer {qwen_key}", "Content-Type": "application/json"},
                     json={
                         "model": "qwen3-72b",
                         "messages": [
-                            {"role": "system", "content": SYSTEM_PROMPT},
-                            {"role": "user", "content": json.dumps(prompt)},
+                            {"role": "system", "content": "You are the AI brain of Deep Wave video editor. Generate a precise JSON editing plan."},
+                            {"role": "user", "content": prompt},
                         ],
                         "response_format": {"type": "json_object"},
                     },
                 )
                 data = resp.json()
-                plan_data = json.loads(data["choices"][0]["message"]["content"])
-                return EditPlan(**plan_data)
+                llm_plan = json.loads(data["choices"][0]["message"]["content"])
+                plan.update(llm_plan)
         except Exception as e:
-            logger.warning(f"Qwen API call failed, using fallback: {e}")
+            logger.warning(f"Qwen API failed, using preset plan: {e}")
 
-    return _fallback_plan(video_info, music_analysis, options, grade_preset, grade_intensity)
-
-
-def _fallback_plan(
-    video_info: dict,
-    music_analysis: Optional[dict],
-    options: EditingOptions,
-    grade_preset: str,
-    grade_intensity: float,
-) -> EditPlan:
-    duration = video_info.get("duration", 0)
-    music_duration = music_analysis.get("duration") if music_analysis else None
-    beats = music_analysis.get("beats", []) if music_analysis else []
-
-    return EditPlan(
-        original_duration=duration,
-        music_duration=music_duration,
-        detected_moments=video_info.get("moments", []),
-        detected_beats=[{"time": b, "strong": b in music_analysis.get("strong_beats", [])} for b in beats] if beats else [],
-        enabled_options=options.model_dump(),
-        planned_edits=[],
-        planned_effects=[],
-        planned_transitions=[],
-        color_grading={"preset": grade_preset, "intensity": grade_intensity} if options.ai_color_grading else {},
-        audio_settings={
-            "original_volume": 0.7,
-            "music_volume": 0.5,
-            "use_music": music_analysis is not None,
-        },
-        expected_final_duration=duration,
-    )
+    return plan

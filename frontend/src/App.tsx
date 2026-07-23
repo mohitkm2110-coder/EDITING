@@ -1,9 +1,9 @@
 import { useState, useCallback } from 'react';
-import type { Step, EditingOptions, GradePreset, JobStatus } from './types';
+import type { Step, EditStyle, JobStatus } from './types';
 import { generateEdit, pollStatus, getDownloadUrl } from './api';
 import StepUpload from './components/StepUpload';
 import StepMusic from './components/StepMusic';
-import StepOptions from './components/StepOptions';
+import StepStyle from './components/StepStyle';
 import StepProcessing from './components/StepProcessing';
 import StepPreview from './components/StepPreview';
 
@@ -12,30 +12,16 @@ export default function App() {
   const [error, setError] = useState('');
 
   // Video
-  const [videoFile, setVideoFile] = useState<{ filename: string; url: string; duration: number } | null>(null);
+  const [video, setVideo] = useState<{ filename: string; url: string; duration: number } | null>(null);
 
   // Music
   const [music, setMusic] = useState<{ filename: string; url: string; duration: number } | null>(null);
   const [selectedTrack, setSelectedTrack] = useState<string | null>(null);
-  const [musicVolume, setMusicVolume] = useState(70);
-  const [origVolume, setOrigVolume] = useState(70);
+  const [musicVol, setMusicVol] = useState(70);
+  const [origVol, setOrigVol] = useState(70);
 
-  // Options
-  const [options, setOptions] = useState<EditingOptions>({
-    auto_cut_boring_clips: false,
-    auto_detect_highlights: false,
-    auto_add_captions: false,
-    auto_add_transitions: false,
-    auto_add_effects: false,
-    auto_zoom_effects: false,
-    auto_beat_sync: true,
-    ai_color_grading: false,
-    music_sync: false,
-    audio_enhancement: false,
-    video_quality_enhancement: false,
-  });
-  const [gradePreset, setGradePreset] = useState<GradePreset>('natural');
-  const [gradeIntensity, setGradeIntensity] = useState(50);
+  // Style
+  const [style, setStyle] = useState<EditStyle>('gaming');
 
   // Processing
   const [processing, setProcessing] = useState(false);
@@ -43,31 +29,19 @@ export default function App() {
   const [procStage, setProcStage] = useState('');
 
   // Preview
-  const [editedVideoUrl, setEditedVideoUrl] = useState('');
-
-  const toggleOption = useCallback((key: keyof EditingOptions) => {
-    setOptions(prev => ({ ...prev, [key]: !prev[key] }));
-  }, []);
-
-  const handleVideoUploaded = useCallback((filename: string, url: string, duration: number) => {
-    setVideoFile({ filename, url, duration });
-    setStep('music');
-  }, []);
+  const [editedUrl, setEditedUrl] = useState('');
 
   const handleGenerate = useCallback(async () => {
-    if (!videoFile) return;
+    if (!video) return;
     setProcessing(true);
     setStep('processing');
     setError('');
-    setProcStage('Generating AI editing plan...');
+    setProcStage('AI is analyzing your video and music...');
     setProcProgress(0.05);
 
     try {
-      const musicFilename = music?.filename ? music.filename.split('/').pop() || null : null;
-      const resp = await generateEdit(
-        videoFile.filename, musicFilename, options,
-        gradePreset, gradeIntensity / 100, 0, origVolume / 100, musicVolume / 100,
-      );
+      const musicFn = music?.filename.split('/').pop() || null;
+      const resp = await generateEdit(video.filename, musicFn, style, 0, origVol / 100, musicVol / 100);
       setProcStage('Processing video...');
       setProcProgress(0.15);
 
@@ -76,42 +50,33 @@ export default function App() {
         setProcStage(s.message);
       });
 
-      const dlUrl = getDownloadUrl(`${resp.job_id}.mp4`);
-      setEditedVideoUrl(dlUrl);
+      setEditedUrl(getDownloadUrl(`${resp.job_id}.mp4`));
       setStep('preview');
     } catch (e: any) {
       setError(e.message || 'Processing failed');
-      setStep('options');
+      setStep('style');
     } finally {
       setProcessing(false);
     }
-  }, [videoFile, music, options, gradePreset, gradeIntensity, origVolume, musicVolume]);
-
-  const handleCancel = useCallback(() => {
-    setProcessing(false);
-    setStep('options');
-  }, []);
+  }, [video, music, style, origVol, musicVol]);
 
   const handleExport = useCallback(() => {
-    if (editedVideoUrl) {
+    if (editedUrl) {
       const a = document.createElement('a');
-      a.href = editedVideoUrl;
+      a.href = editedUrl;
       a.download = 'deepwave-edit.mp4';
       a.click();
     }
-  }, [editedVideoUrl]);
+  }, [editedUrl]);
 
   const handleNewEdit = useCallback(() => {
-    if (videoFile?.url) URL.revokeObjectURL(videoFile.url);
+    if (video?.url) URL.revokeObjectURL(video.url);
     if (music?.url) URL.revokeObjectURL(music.url);
-    setVideoFile(null);
-    setMusic(null);
-    setSelectedTrack(null);
-    setEditedVideoUrl('');
+    setVideo(null); setMusic(null); setSelectedTrack(null); setEditedUrl('');
     setStep('upload');
-  }, [videoFile, music]);
+  }, [video, music]);
 
-  const canGenerate = !!videoFile && !!(music || selectedTrack);
+  const hasMusic = !!(music || selectedTrack);
 
   return (
     <div className="app">
@@ -122,43 +87,33 @@ export default function App() {
 
       {error && <div className="error-banner">{error}</div>}
 
-      {step === 'upload' && <StepUpload onVideoUploaded={handleVideoUploaded} />}
+      {step === 'upload' && <StepUpload onVideoUploaded={(fn, url, dur) => { setVideo({ filename: fn, url, duration: dur }); setStep('music'); }} />}
 
       {step === 'music' && (
         <StepMusic
           music={music} selectedTrack={selectedTrack}
           onMusicSelected={m => { setMusic(m); setSelectedTrack(null); }}
           onTrackSelected={id => { setSelectedTrack(id); setMusic(null); }}
-          onBack={() => setStep('upload')}
-          onNext={() => setStep('options')}
-          musicVolume={musicVolume} origVolume={origVolume}
-          onMusicVolume={setMusicVolume} onOrigVolume={setOrigVolume}
+          onBack={() => { if (video?.url) URL.revokeObjectURL(video.url); setVideo(null); setStep('upload'); }}
+          onNext={() => setStep('style')}
+          musicVolume={musicVol} origVolume={origVol}
+          onMusicVolume={setMusicVol} onOrigVolume={setOrigVol}
         />
       )}
 
-      {step === 'options' && (
-        <StepOptions
-          options={options} onToggle={toggleOption}
-          gradePreset={gradePreset} gradeIntensity={gradeIntensity}
-          onGradePreset={setGradePreset} onGradeIntensity={setGradeIntensity}
+      {step === 'style' && (
+        <StepStyle
+          style={style} onStyleChange={setStyle}
           onBack={() => setStep('music')}
           onGenerate={handleGenerate}
-          canGenerate={canGenerate} generating={processing}
+          canGenerate={!!video && hasMusic}
+          generating={processing}
         />
       )}
 
-      {step === 'processing' && (
-        <StepProcessing progress={procProgress} stage={procStage} onCancel={handleCancel} />
-      )}
+      {step === 'processing' && <StepProcessing progress={procProgress} stage={procStage} onCancel={() => { setProcessing(false); setStep('style'); }} />}
 
-      {step === 'preview' && (
-        <StepPreview
-          originalUrl={videoFile?.url || ''}
-          editedUrl={editedVideoUrl}
-          onNewEdit={handleNewEdit}
-          onExport={handleExport}
-        />
-      )}
+      {step === 'preview' && <StepPreview originalUrl={video?.url || ''} editedUrl={editedUrl} onNewEdit={handleNewEdit} onExport={handleExport} />}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import type { UploadResponse, GenerateResponse, JobStatus, EditingOptions } from './types';
+import type { UploadResponse, GenerateResponse, JobStatus } from './types';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -21,9 +21,7 @@ export async function uploadMusic(file: File): Promise<UploadResponse> {
 export async function generateEdit(
   videoFilename: string,
   musicFilename: string | null,
-  options: EditingOptions,
-  gradePreset: string,
-  gradeIntensity: number,
+  style: string,
   musicOffset: number,
   origVol: number,
   musicVol: number,
@@ -34,13 +32,10 @@ export async function generateEdit(
     body: JSON.stringify({
       video_filename: videoFilename,
       music_filename: musicFilename,
+      style,
       music_offset: musicOffset,
       original_audio_volume: origVol,
       music_volume: musicVol,
-      options,
-      grade_preset: gradePreset,
-      grade_intensity: gradeIntensity,
-      aspect_ratio: 'original',
     }),
   });
   if (!resp.ok) throw new Error(`Generate failed: ${await resp.text()}`);
@@ -58,9 +53,7 @@ export async function pollStatus(jobId: string, onUpdate: (s: JobStatus) => void
         if (data.status === 'completed') resolve(data);
         else if (data.status === 'failed') reject(new Error(data.message));
         else setTimeout(poll, 1000);
-      } catch (e) {
-        reject(e);
-      }
+      } catch (e) { reject(e); }
     };
     poll();
   });

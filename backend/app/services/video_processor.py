@@ -1,97 +1,74 @@
 import subprocess
 import os
-import json
 import logging
 from typing import Optional
-from ..models.schemas import EditPlan, EditingOptions
 from .job_manager import update_job
 
 logger = logging.getLogger(__name__)
 
+STYLE_FILTERS = {
+    "gaming": "eq=contrast=1.12:saturation=1.1:brightness=0.0",
+    "viral": "eq=contrast=1.2:saturation=1.25:brightness=0.02",
+    "cinematic": "eq=contrast=1.08:saturation=0.88:brightness=-0.04",
+}
+
+
 def get_video_info(file_path: str) -> dict:
-    cmd = [
-        "ffprobe", "-v", "quiet", "-print_format", "json",
-        "-show_format", "-show_streams", file_path,
-    ]
+    cmd = ["ffprobe", "-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", file_path]
     try:
+        import json
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
         data = json.loads(result.stdout)
-        streams = data.get("streams", [])
-        video_stream = next((s for s in streams if s["codec_type"] == "video"), {})
+        vs = next((s for s in data.get("streams", []) if s["codec_type"] == "video"), {})
+        fps_str = vs.get("r_frame_rate", "30/1")
+        try:
+            num, den = fps_str.split("/")
+            fps = float(num) / float(den)
+        except:
+            fps = 30
         return {
             "duration": float(data.get("format", {}).get("duration", 0)),
-            "width": int(video_stream.get("width", 0)),
-            "height": int(video_stream.get("height", 0)),
-            "codec": video_stream.get("codec_name", "h264"),
-            "fps": eval(video_stream.get("r_frame_rate", "30/1")) if isinstance(video_stream.get("r_frame_rate"), str) else 30,
+            "width": int(vs.get("width", 0)),
+            "height": int(vs.get("height", 0)),
+            "fps": fps,
         }
     except Exception as e:
-        logger.error(f"FFprobe failed: {e}")
-        return {"duration": 0, "width": 0, "height": 0, "codec": "h264", "fps": 30}
+        logger.error(f"FFprobe: {e}")
+        return {"duration": 0, "width": 0, "height": 0, "fps": 30}
 
 
 def process_video(
     video_path: str,
     music_path: Optional[str],
     output_path: str,
-    plan: EditPlan,
-    options: EditingOptions,
+    style: str,
+    orig_vol: float = 0.7,
+    music_vol: float = 0.5,
     job_id: Optional[str] = None,
 ):
-    update_job(job_id, "processing", 0.1, "Building FFmpeg command...")
+    update_job(job_id, "processing", 0.1, "Building edit...")
 
-    filters = []
-    audio_inputs = []
-    filter_complex_parts = []
-
-    # Color grading via FFmpeg curves/eq filter
-    if options.ai_color_grading:
-        grade = plan.color_grading
-        preset = grade.get("preset", "natural")
-        intensity = grade.get("intensity", 0.5)
-        if preset == "gaming":
-            filters.extend([f"eq=contrast={1.0 + 0.15 * intensity}:brightness={0.0}:saturation={1.0 + 0.1 * intensity}"])
-        elif preset == "cinematic":
-            filters.extend([f"eq=contrast={1.0 + 0.08 * intensity}:brightness={-0.04 * intensity}:saturation={1.0 - 0.1 * intensity}"])
-        elif preset == "viral":
-            filters.extend([f"eq=contrast={1.0 + 0.2 * intensity}:brightness={0.02 * intensity}:saturation={1.0 + 0.2 * intensity}"])
-
-    # Beat-sync effects via detected moments (rendered as drawtext/overlay)
-    if options.auto_beat_sync and plan.detected_moments:
-        pass  # Effect overlay handled externally or via complex filter script
-
-    filter_str = ",".join(filters) if filters else "null"
-
+    filter_str = STYLE_FILTERS.get(style, STYLE_FILTERS["gaming"])
     cmd = ["ffmpeg", "-y", "-i", video_path]
 
-    if music_path and os.path.exists(music_path):
-        audio_inputs.extend(["-i", music_path])
-        # Mix original audio with music
-        amix_parts = "[0:a]"
-        music_label = "[1:a]"
-        ac = f"[0:a]volume={options.original_audio_volume or 0.7}[a0];"
-        ac += f"{music_label}volume={options.music_volume or 0.5}[a1];"
-        ac += "[a0][a1]amix=inputs=2:duration=first[aout]"
-        filter_complex_parts.append(ac)
+    music_input = music_path and os.path.exists(music_path)
+    filter_parts = []
 
-    update_job(job_id, "processing", 0.2, "Applying video filters...")
+    if music_input:
+        cmd.extend(["-i", music_path])
+        filter_parts.append(
+            f"[0:a]volume={orig_vol}[a0];"
+            f"[1:a]volume={music_vol}[a1];"
+            f"[a0][a1]amix=inputs=2:duration=first[aout]"
+        )
 
-    if filter_str != "null":
-        filter_complex_parts.append(f"[0:v]{filter_str}[vout]")
-    else:
-        filter_complex_parts.append("[0:v]copy[vout]")
-
-    if filter_complex_parts:
-        cmd.extend(["-filter_complex", ";".join(filter_complex_parts)])
-
-    if audio_inputs:
-        cmd.extend(["-map", "[vout]", "-map", "[aout]"])
-    else:
-        cmd.extend(["-map", "[vout]", "-map", "0:a"])
-
+    filter_parts.append(f"[0:v]{filter_str}[vout]")
+    cmd.extend(["-filter_complex", ";".join(filter_parts)])
+    cmd.extend(["-map", "[vout]"])
+    cmd.extend(["-map", "[aout]"] if music_input else ["-map", "0:a"])
     cmd.extend(["-c:v", "libx264", "-preset", "medium", "-crf", "18", "-c:a", "aac", "-b:a", "192k", output_path])
 
-    update_job(job_id, "processing", 0.3, f"Running: {' '.join(cmd[:6])}...")
+    update_job(job_id, "processing", 0.2, f"Running FFmpeg...")
 
     try:
         proc = subprocess.Popen(
@@ -104,16 +81,15 @@ def process_video(
                     parts = line.split("time=")[1].split()[0]
                     h, m, s = parts.split(":")
                     elapsed = int(h) * 3600 + int(m) * 60 + float(s)
-                    total = plan.original_duration
-                    progress = 0.3 + min(0.6, elapsed / total * 0.6) if total > 0 else 0.5
+                    info = get_video_info(video_path)
+                    total = info["duration"]
+                    progress = 0.2 + min(0.7, elapsed / total * 0.7) if total > 0 else 0.5
                     update_job(job_id, "processing", progress, f"Encoding: {parts}")
                 except:
                     pass
         proc.wait()
-        if proc.returncode == 0:
-            update_job(job_id, "completed", 1.0, "Edit complete!")
-        else:
-            update_job(job_id, "failed", 1.0, "FFmpeg processing failed")
+        update_job(job_id, "completed" if proc.returncode == 0 else "failed", 1.0,
+                   "Edit complete!" if proc.returncode == 0 else "FFmpeg failed")
     except Exception as e:
-        logger.error(f"FFmpeg error: {e}")
-        update_job(job_id, "failed", 1.0, f"FFmpeg error: {str(e)}")
+        logger.error(f"FFmpeg: {e}")
+        update_job(job_id, "failed", 1.0, f"Error: {str(e)}")

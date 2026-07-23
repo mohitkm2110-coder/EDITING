@@ -18,7 +18,7 @@ os.makedirs(EXPORT_DIR, exist_ok=True)
 async def generate_edit(req: GenerateRequest):
     video_path = os.path.join(UPLOAD_DIR, req.video_filename)
     if not os.path.exists(video_path):
-        raise HTTPException(404, "Video file not found. Upload first.")
+        raise HTTPException(404, "Video not found. Upload first.")
 
     music_path = None
     music_analysis = None
@@ -29,16 +29,9 @@ async def generate_edit(req: GenerateRequest):
         music_analysis = analyze_music(music_path)
 
     video_info = get_video_info(video_path)
-    video_info["moments"] = []  # Placeholder for AI-detected moments
+    video_info["moments"] = []
 
-    plan = await generate_edit_plan(
-        video_info=video_info,
-        music_analysis=music_analysis,
-        options=req.options,
-        grade_preset=req.grade_preset,
-        grade_intensity=req.grade_intensity,
-    )
-
+    plan = await generate_edit_plan(video_info, music_analysis, req.style)
     job_id = create_job()
     output_filename = f"{job_id}.mp4"
     output_path = os.path.join(EXPORT_DIR, output_filename)
@@ -49,11 +42,12 @@ async def generate_edit(req: GenerateRequest):
         video_path=video_path,
         music_path=music_path,
         output_path=output_path,
-        plan=plan,
-        options=req.options,
+        style=req.style,
+        orig_vol=req.original_audio_volume,
+        music_vol=req.music_volume,
     )
 
-    return {"job_id": job_id, "plan": plan.model_dump()}
+    return {"job_id": job_id, "plan": plan}
 
 
 @router.get("/status/{job_id}", response_model=JobStatus)
@@ -68,5 +62,5 @@ async def get_job_status(job_id: str):
 async def download(filename: str):
     filepath = os.path.join(EXPORT_DIR, filename)
     if not os.path.exists(filepath):
-        raise HTTPException(404, "File not found or not ready yet")
+        raise HTTPException(404, "File not ready")
     return FileResponse(filepath, media_type="video/mp4", filename="deepwave-edit.mp4")
