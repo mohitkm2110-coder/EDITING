@@ -1,0 +1,133 @@
+import { Injectable } from '@angular/core';
+import { StateService, Scene, Highlight, AudioEvent } from './state-service';
+
+const ANALYSIS_WIDTH = 160;
+const ANALYSIS_HEIGHT = 90;
+
+@Injectable({ providedIn: 'root' })
+export class VideoAnalysisService {
+  constructor(private state: StateService) {}
+
+  async detectScenes(videoEl: HTMLVideoElement, onProgress?: (pct: number) => void): Promise<Scene[]> {
+    const ac = document.createElement('canvas');
+    ac.width = ANALYSIS_WIDTH; ac.height = ANALYSIS_HEIGHT;
+    const actx = ac.getContext('2d')!;
+    const duration = videoEl.duration;
+    const scenes: Scene[] = [{ start: 0, end: duration }];
+    const step = 0.5;
+    let prev: Uint8Array | null = null;
+    const changes: number[] = [];
+    for (let t = 0; t < duration; t += step) {
+      if (this.state.cancelling()) return scenes;
+      videoEl.currentTime = t;
+      await new Promise<void>(r => { videoEl.onseeked = () => r(); setTimeout(r, 200); });
+      actx.drawImage(videoEl, 0, 0, ANALYSIS_WIDTH, ANALYSIS_HEIGHT);
+      const d = actx.getImageData(0, 0, ANALYSIS_WIDTH, ANALYSIS_HEIGHT).data;
+      if (prev) {
+        let diff = 0;
+        for (let i = 0; i < d.length; i += 4) {
+          diff += Math.abs(d[i] - prev[i]) + Math.abs(d[i + 1] - prev[i + 1]) + Math.abs(d[i + 2] - prev[i + 2]);
+        }
+        diff /= (ANALYSIS_WIDTH * ANALYSIS_HEIGHT * 3);
+        if (diff > 35) changes.push(t);
+      }
+      prev = new Uint8Array(d);
+      if (onProgress) onProgress(t / duration);
+    }
+    if (changes.length > 0) {
+      scenes.length = 0;
+      let start = 0;
+      for (const ct of changes) {
+        if (ct - start > 2) { scenes.push({ start: Math.round(start * 10) / 10, end: Math.round(ct * 10) / 10 }); start = ct; }
+      }
+      if (duration - start > 0.5) scenes.push({ start: Math.round(start * 10) / 10, end: duration });
+    }
+    return scenes;
+  }
+
+  async detectHighlights(videoEl: HTMLVideoElement, onProgress?: (pct: number) => void): Promise<Highlight[]> {
+    const ac = document.createElement('canvas');
+    ac.width = ANALYSIS_WIDTH; ac.height = ANALYSIS_HEIGHT;
+    const actx = ac.getContext('2d')!;
+    const duration = videoEl.duration;
+    const highlights: Highlight[] = [];
+    const step = 0.3;
+    let prev: Uint8Array | null = null;
+    let prevMotion = 0;
+    const motionHistory: number[] = [];
+    for (let t = 0; t < duration; t += step) {
+      if (this.state.cancelling()) return highlights;
+      videoEl.currentTime = t;
+      await new Promise<void>(r => { videoEl.onseeked = () => r(); setTimeout(r, 150); });
+      actx.drawImage(videoEl, 0, 0, ANALYSIS_WIDTH, ANALYSIS_HEIGHT);
+      const d = actx.getImageData(0, 0, ANALYSIS_WIDTH, ANALYSIS_HEIGHT).data;
+      if (prev) {
+        let motion = 0, change = 0;
+        for (let i = 0; i < d.length; i += 4) {
+          const diff = Math.abs(d[i] - prev[i]) + Math.abs(d[i + 1] - prev[i + 1]) + Math.abs(d[i + 2] - prev[i + 2]);
+          motion += diff;
+          if (diff > 40) change++;
+        }
+        motion /= (ANALYSIS_WIDTH * ANALYSIS_HEIGHT * 3);
+        const changeRatio = change / (ANALYSIS_WIDTH * ANALYSIS_HEIGHT);
+        motionHistory.push(motion);
+        if (motionHistory.length > 5) motionHistory.shift();
+        let score = motion;
+        const spike = motion - prevMotion;
+        if (spike > 2) score += spike * 0.8;
+        if (changeRatio > 0.15) score += 0.4;
+        if (motionHistory.length >= 3) {
+          const trend = motionHistory[motionHistory.length - 1] - motionHistory[0];
+          if (trend > 0) score += trend * 0.4;
+        }
+        if (score > 5) highlights.push({ time: t, intensity: Math.min(100, score * 15) });
+        prevMotion = motion;
+      }
+      prev = new Uint8Array(d);
+      if (onProgress) onProgress(t / duration);
+    }
+    return highlights;
+  }
+
+  async analyzeAudio(videoEl: HTMLVideoElement, onProgress?: (pct: number) => void): Promise<AudioEvent[]> {
+    const events: AudioEvent[] = [];
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const v = document.createElement('video');
+      v.src = videoEl.src;
+      await new Promise<void>(r => { v.onloadedmetadata = () => r(); setTimeout(r, 5000); });
+      const src = ctx.createMediaElementSource(v);
+      const dst = ctx.createMediaStreamDestination();
+      src.connect(ctx.createGain()).connect(dst);
+      await v.play();
+      const rec = new MediaRecorder(dst.stream, { mimeType: 'audio/webm' });
+      const chunks: Blob[] = [];
+      rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+      rec.start();
+      const sampleTime = Math.min(3000, videoEl.duration * 1000);
+      await new Promise(r => setTimeout(r, sampleTime));
+      v.pause(); rec.stop();
+      await new Promise(r => setTimeout(r, 200));
+      ctx.close();
+      v.remove();
+      if (chunks.length) {
+        const blob = new Blob(chunks);
+        const ab = await blob.arrayBuffer();
+        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const decoded = await audioCtx.decodeAudioData(ab);
+        const d = decoded.getChannelData(0);
+        const sr = decoded.sampleRate;
+        const ws = Math.floor(sr * 0.05);
+        for (let i = 0; i < d.length; i += ws) {
+          let sum = 0, cnt = 0;
+          for (let j = 0; j < ws && i + j < d.length; j++) { sum += d[i + j] * d[i + j]; cnt++; }
+          events.push({ time: (i / sr), volume: Math.sqrt(sum / cnt) });
+        }
+        const maxV = Math.max(...events.map(p => p.volume), 0.001);
+        events.forEach(p => p.volume = (p.volume / maxV) * 100);
+        audioCtx.close();
+      }
+    } catch (e: any) { console.warn('Audio analysis:', e.message); }
+    return events;
+  }
+}

@@ -85,10 +85,6 @@ $('#btnMusicBack').addEventListener('click', () => {
 });
 
 $('#btnMusicNext').addEventListener('click', () => {
-  if (State.music.analyzing) {
-    alert('Please wait, the music is still being analyzed.');
-    return;
-  }
   if (!State.music.buffer && !State.music.selectedTrack) {
     alert('Please select or upload a music track first.');
     return;
