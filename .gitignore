@@ -2,6 +2,10 @@
 
 # Compiled output
 /dist
+/frontend/dist
+/backend/uploads
+/backend/exports
+*.mp4
 /tmp
 /out-tsc
 /bazel-out
