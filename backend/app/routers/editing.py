@@ -51,6 +51,7 @@ async def generate_edit(req: GenerateRequest):
         style=req.style,
         orig_vol=req.original_audio_volume,
         music_vol=req.music_volume,
+        music_analysis=music_analysis,
     )
 
     return {"job_id": job_id, "plan": plan}
